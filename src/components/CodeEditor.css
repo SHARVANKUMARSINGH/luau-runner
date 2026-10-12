@@ -1,6 +1,60 @@
+/* ===== Code Editor Wrapper & Layout ===== */
+.code-editor-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.code-editor-wrapper.dark {
+  background-color: #1e1e2e;
+}
+
+.code-editor-wrapper.light {
+  background-color: #eff1f5;
+}
+
+/* Alive Execution Border Glow & Shimmer */
+.code-editor-wrapper.is-running {
+  box-shadow: inset 0 0 16px rgba(137, 180, 250, 0.18), 0 0 10px rgba(137, 180, 250, 0.25);
+}
+
+.running-shimmer-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  z-index: 20;
+  background: linear-gradient(
+    90deg,
+    #89b4fa 0%,
+    #cba6f7 25%,
+    #f5c2e7 50%,
+    #89dceb 75%,
+    #89b4fa 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-beam 1.2s linear infinite;
+  box-shadow: 0 0 10px rgba(137, 180, 250, 0.8), 0 0 20px rgba(203, 166, 247, 0.5);
+}
+
+@keyframes shimmer-beam {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+/* CodeMirror Scroll Container */
 .code-editor-container {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   position: relative;
 }
 
@@ -13,19 +67,370 @@
   overflow: auto;
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
   -webkit-overflow-scrolling: touch;
+  line-height: 1.6;
 }
 
-/* Mobile optimizations */
-@media (max-width: 768px) {
-  .code-editor-container .cm-editor {
-    font-size: 13px;
+/* ===== Alive Cursor Styling & Animation ===== */
+.cm-cursor {
+  animation: cursor-breathe 1.05s ease-in-out infinite;
+}
+
+@keyframes cursor-breathe {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 4px rgba(137, 180, 250, 0.8));
   }
-  
-  .code-editor-container .cm-gutters {
-    min-width: 36px;
+  50% {
+    opacity: 0.35;
+    filter: drop-shadow(0 0 1px rgba(137, 180, 250, 0.3));
+  }
+}
+
+/* ===== Color Swatch Widget ===== */
+.cm-color-swatch-widget {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  vertical-align: -1px;
+  margin: 0 4px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cm-color-swatch-widget:hover {
+  transform: scale(1.35);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+/* ===== Interactive Documentation Hover Tooltips ===== */
+.cm-roblox-doc-tooltip {
+  max-width: 380px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  user-select: text;
+  animation: tooltip-fade 0.16s ease-out;
+}
+
+@keyframes tooltip-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cm-tooltip {
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+.doc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.doc-title {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+  color: #cdd6f4;
+}
+
+.doc-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.badge-service {
+  background: rgba(137, 220, 235, 0.2);
+  color: #89dceb;
+  border: 1px solid rgba(137, 220, 235, 0.4);
+}
+
+.badge-class {
+  background: rgba(249, 226, 175, 0.2);
+  color: #f9e2af;
+  border: 1px solid rgba(249, 226, 175, 0.4);
+}
+
+.badge-method {
+  background: rgba(137, 180, 250, 0.2);
+  color: #89b4fa;
+  border: 1px solid rgba(137, 180, 250, 0.4);
+}
+
+.badge-function {
+  background: rgba(203, 166, 247, 0.2);
+  color: #cba6f7;
+  border: 1px solid rgba(203, 166, 247, 0.4);
+}
+
+.badge-datatype {
+  background: rgba(245, 194, 231, 0.2);
+  color: #f5c2e7;
+  border: 1px solid rgba(245, 194, 231, 0.4);
+}
+
+.doc-signature {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+  padding: 4px 8px;
+  margin-bottom: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #a6e3a1;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.doc-summary {
+  color: #cdd6f4;
+  margin-bottom: 6px;
+  font-size: 11.5px;
+}
+
+.doc-example {
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #f9e2af;
+  border-left: 2px solid #fab387;
+}
+
+.example-label {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.7;
+  margin-right: 4px;
+  text-transform: uppercase;
+}
+
+/* Light theme tooltip overrides */
+.light .cm-roblox-doc-tooltip {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.15);
+}
+
+.light .doc-title {
+  color: #4c4f69;
+}
+
+.light .doc-signature {
+  background: rgba(0, 0, 0, 0.05);
+  color: #40a02b;
+}
+
+.light .doc-summary {
+  color: #5c5f77;
+}
+
+.light .doc-example {
+  background: rgba(0, 0, 0, 0.03);
+  color: #df8e1d;
+  border-left-color: #fe640b;
+}
+
+/* ===== Alive Status Bar at Bottom ===== */
+.editor-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 25px;
+  padding: 0 10px;
+  font-size: 11px;
+  user-select: none;
+  border-top: 1px solid var(--border-color, #313244);
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.editor-status-bar.dark {
+  background: #181825;
+  color: #a6adc8;
+}
+
+.editor-status-bar.light {
+  background: #e6e9ef;
+  color: #6c6f85;
+  border-top-color: #ccd0da;
+}
+
+.status-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.status-sep {
+  opacity: 0.35;
+  font-size: 9px;
+}
+
+/* Matching Word Occurrences Pill */
+.status-match-pill {
+  background: rgba(137, 180, 250, 0.16);
+  color: #89b4fa !important;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 10.5px;
+  border: 1px solid rgba(137, 180, 250, 0.35);
+  animation: pill-pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes pill-pop {
+  from {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.match-icon {
+  font-size: 9px;
+}
+
+.match-count {
+  font-weight: 600;
+}
+
+.match-word {
+  opacity: 0.85;
+}
+
+/* Script Type Badge in Status Bar */
+.status-type-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.status-type-badge.type-Script {
+  background: rgba(137, 180, 250, 0.15);
+  color: #89b4fa;
+}
+
+.status-type-badge.type-ServerScript {
+  background: rgba(166, 227, 161, 0.15);
+  color: #a6e3a1;
+}
+
+.status-type-badge.type-LocalScript {
+  background: rgba(249, 226, 175, 0.15);
+  color: #f9e2af;
+}
+
+.status-type-badge.type-ModuleScript {
+  background: rgba(203, 166, 247, 0.15);
+  color: #cba6f7;
+}
+
+/* VM State Badge */
+.status-vm {
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.status-vm.ready {
+  color: #89b4fa;
+}
+
+.status-vm.running {
+  color: #a6e3a1;
+  font-weight: 700;
+}
+
+.vm-dot {
+  display: inline-block;
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+}
+
+.vm-dot.steady {
+  background: #89b4fa;
+  box-shadow: 0 0 5px rgba(137, 180, 250, 0.6);
+}
+
+.vm-dot.pulse {
+  background: #a6e3a1;
+  box-shadow: 0 0 8px #a6e3a1;
+  animation: live-pulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes live-pulse {
+  0% {
+    transform: scale(0.9);
+    box-shadow: 0 0 3px #a6e3a1;
+  }
+  100% {
+    transform: scale(1.3);
+    box-shadow: 0 0 10px #a6e3a1, 0 0 15px rgba(166, 227, 161, 0.7);
+  }
+}
+
+/* Keyboard Shortcut Hint */
+.status-hint {
+  opacity: 0.65;
+  font-size: 10px;
+}
+
+.status-hint kbd {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  padding: 0 3px;
+  font-size: 9px;
+  font-family: inherit;
+}
+
+.editor-status-bar.light .status-hint kbd {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+  .status-hint {
+    display: none;
   }
 
-  .code-editor-container .cm-tooltip-autocomplete {
-    max-width: 90vw;
+  .status-match-pill .match-word {
+    display: none;
+  }
+
+  .editor-status-bar {
+    height: 22px;
+    padding: 0 6px;
+    font-size: 10px;
   }
 }

@@ -36,6 +36,11 @@ import {
   CODE_SNIPPETS,
   type CompletionItem,
 } from './completions';
+import {
+  robloxTokenHighlighter,
+  colorPreviewPlugin,
+  robloxHoverTooltips,
+} from './roblox-highlighter';
 
 // Theme compartment for dynamic switching
 export const themeCompartment = new Compartment();
@@ -54,14 +59,16 @@ export const darkTheme = EditorView.theme({
     padding: '4px 0',
   },
   '.cm-cursor, .cm-dropCursor': {
-    borderLeftColor: '#f5e0dc',
-    borderLeftWidth: '2px',
+    borderLeftColor: '#f5e0dc !important',
+    borderLeftWidth: '2.5px !important',
+    boxShadow: '0 0 8px rgba(245, 224, 220, 0.85)',
   },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
     backgroundColor: '#45475a !important',
   },
   '.cm-activeLine': {
-    backgroundColor: '#313244',
+    backgroundColor: 'rgba(49, 50, 68, 0.75) !important',
+    borderLeft: '2px solid #89b4fa',
   },
   '.cm-gutters': {
     backgroundColor: '#181825',
@@ -71,7 +78,8 @@ export const darkTheme = EditorView.theme({
   },
   '.cm-activeLineGutter': {
     backgroundColor: '#313244',
-    color: '#cdd6f4',
+    color: '#89b4fa !important',
+    fontWeight: 'bold',
   },
   '.cm-foldPlaceholder': {
     backgroundColor: '#45475a',
@@ -104,8 +112,9 @@ export const darkTheme = EditorView.theme({
     backgroundColor: '#f9e2af80',
   },
   '.cm-matchingBracket': {
-    backgroundColor: '#585b7040',
+    backgroundColor: 'rgba(137, 180, 250, 0.3) !important',
     outline: '1px solid #89b4fa',
+    boxShadow: '0 0 8px rgba(137, 180, 250, 0.6)',
   },
   '.cm-panels': {
     backgroundColor: '#181825',
@@ -137,6 +146,64 @@ export const darkTheme = EditorView.theme({
   },
   '.cm-panel.cm-search label': {
     color: '#a6adc8',
+  },
+  // Custom Semantic Roblox Highlighting (Dark Theme)
+  '.cm-roblox-global': {
+    color: '#f5c2e7 !important',
+    fontWeight: '600',
+    textShadow: '0 0 8px rgba(245, 194, 231, 0.3)',
+  },
+  '.cm-roblox-service': {
+    color: '#89dceb !important',
+    fontWeight: '600',
+    textShadow: '0 0 8px rgba(137, 220, 235, 0.3)',
+  },
+  '.cm-roblox-method': {
+    color: '#89b4fa !important',
+  },
+  '.cm-roblox-builtin': {
+    color: '#b4befe !important',
+  },
+  '.cm-roblox-task': {
+    color: '#f9e2af !important',
+    fontWeight: '500',
+  },
+  '.cm-roblox-bool': {
+    color: '#fab387 !important',
+    fontWeight: 'bold',
+  },
+  '.cm-roblox-self': {
+    color: '#f38ba8 !important',
+    fontWeight: 'bold',
+  },
+  '.cm-roblox-event': {
+    color: '#a6e3a1 !important',
+  },
+  '.cm-roblox-prop': {
+    color: '#cba6f7 !important',
+  },
+  // Alive Word Matches & Active Line
+  '.cm-selectionMatch': {
+    backgroundColor: 'rgba(137, 180, 250, 0.22) !important',
+    borderRadius: '3px',
+    outline: '1px solid rgba(137, 180, 250, 0.45)',
+    boxShadow: '0 0 5px rgba(137, 180, 250, 0.25)',
+  },
+  '.cm-selectionMatch-main': {
+    backgroundColor: 'rgba(203, 166, 247, 0.32) !important',
+    borderRadius: '3px',
+    outline: '1px solid rgba(203, 166, 247, 0.75)',
+    boxShadow: '0 0 8px rgba(203, 166, 247, 0.4)',
+  },
+  '.cm-color-swatch-widget': {
+    display: 'inline-block',
+    width: '11px',
+    height: '11px',
+    borderRadius: '3px',
+    verticalAlign: 'middle',
+    margin: '0 3px',
+    border: '1px solid rgba(255, 255, 255, 0.4)',
+    boxShadow: '0 0 5px rgba(0, 0, 0, 0.5)',
   },
 }, { dark: true });
 
@@ -179,14 +246,16 @@ export const lightTheme = EditorView.theme({
     caretColor: '#dc8a78',
   },
   '.cm-cursor, .cm-dropCursor': {
-    borderLeftColor: '#dc8a78',
-    borderLeftWidth: '2px',
+    borderLeftColor: '#dc8a78 !important',
+    borderLeftWidth: '2.5px !important',
+    boxShadow: '0 0 6px rgba(220, 138, 120, 0.7)',
   },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
     backgroundColor: '#acb0be !important',
   },
   '.cm-activeLine': {
-    backgroundColor: '#e6e9ef',
+    backgroundColor: 'rgba(230, 233, 239, 0.9) !important',
+    borderLeft: '2px solid #1e66f5',
   },
   '.cm-gutters': {
     backgroundColor: '#dce0e8',
@@ -195,8 +264,9 @@ export const lightTheme = EditorView.theme({
     borderRight: '1px solid #ccd0da',
   },
   '.cm-activeLineGutter': {
-    backgroundColor: '#e6e9ef',
-    color: '#4c4f69',
+    backgroundColor: '#dce0e8',
+    color: '#1e66f5 !important',
+    fontWeight: 'bold',
   },
   '.cm-tooltip': {
     backgroundColor: '#eff1f5',
@@ -213,8 +283,9 @@ export const lightTheme = EditorView.theme({
     backgroundColor: '#df8e1d40',
   },
   '.cm-matchingBracket': {
-    backgroundColor: '#ccd0da40',
+    backgroundColor: 'rgba(30, 102, 245, 0.2) !important',
     outline: '1px solid #1e66f5',
+    boxShadow: '0 0 6px rgba(30, 102, 245, 0.4)',
   },
   '.cm-panels': {
     backgroundColor: '#dce0e8',
@@ -231,6 +302,62 @@ export const lightTheme = EditorView.theme({
     color: '#4c4f69',
     border: 'none',
     borderRadius: '4px',
+  },
+  // Custom Semantic Roblox Highlighting (Light Theme)
+  '.cm-roblox-global': {
+    color: '#8839ef !important',
+    fontWeight: '600',
+  },
+  '.cm-roblox-service': {
+    color: '#04a5e5 !important',
+    fontWeight: '600',
+  },
+  '.cm-roblox-method': {
+    color: '#1e66f5 !important',
+  },
+  '.cm-roblox-builtin': {
+    color: '#7287fd !important',
+  },
+  '.cm-roblox-task': {
+    color: '#df8e1d !important',
+    fontWeight: '500',
+  },
+  '.cm-roblox-bool': {
+    color: '#fe640b !important',
+    fontWeight: 'bold',
+  },
+  '.cm-roblox-self': {
+    color: '#d20f39 !important',
+    fontWeight: 'bold',
+  },
+  '.cm-roblox-event': {
+    color: '#40a02b !important',
+  },
+  '.cm-roblox-prop': {
+    color: '#8839ef !important',
+  },
+  // Alive Word Matches & Active Line
+  '.cm-selectionMatch': {
+    backgroundColor: 'rgba(30, 102, 245, 0.16) !important',
+    borderRadius: '3px',
+    outline: '1px solid rgba(30, 102, 245, 0.4)',
+    boxShadow: '0 0 5px rgba(30, 102, 245, 0.2)',
+  },
+  '.cm-selectionMatch-main': {
+    backgroundColor: 'rgba(136, 57, 239, 0.22) !important',
+    borderRadius: '3px',
+    outline: '1px solid rgba(136, 57, 239, 0.65)',
+    boxShadow: '0 0 6px rgba(136, 57, 239, 0.3)',
+  },
+  '.cm-color-swatch-widget': {
+    display: 'inline-block',
+    width: '11px',
+    height: '11px',
+    borderRadius: '3px',
+    verticalAlign: 'middle',
+    margin: '0 3px',
+    border: '1px solid rgba(0, 0, 0, 0.25)',
+    boxShadow: '0 0 4px rgba(0, 0, 0, 0.2)',
   },
 }, { dark: false });
 
@@ -407,7 +534,8 @@ export function createEditorState(
   isDark: boolean,
   onUpdate?: (content: string) => void,
   fontSize?: number,
-  onRun?: () => void
+  onRun?: () => void,
+  onCursorActivity?: (view: EditorView) => void
 ): EditorState {
   const customKeymaps = [];
   if (onRun) {
@@ -434,10 +562,19 @@ export function createEditorState(
     rectangularSelection(),
     crosshairCursor(),
     highlightActiveLine(),
-    highlightSelectionMatches(),
+    highlightSelectionMatches({
+      highlightWordAroundCursor: true,
+      minSelectionLength: 2,
+      wholeWords: true,
+    }),
     search(),
     placeholder('-- Write your Luau code here...'),
     closeBrackets,
+
+    // Custom Semantic Roblox Highlighting, Color Swatches, and Hover Documentation
+    robloxTokenHighlighter,
+    colorPreviewPlugin,
+    robloxHoverTooltips,
 
     // Keymaps
     keymap.of([
@@ -471,15 +608,14 @@ export function createEditorState(
     }),
 
     // Update listener
-    ...(onUpdate
-      ? [
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged) {
-              onUpdate(update.state.doc.toString());
-            }
-          }),
-        ]
-      : []),
+    EditorView.updateListener.of((update) => {
+      if (update.docChanged && onUpdate) {
+        onUpdate(update.state.doc.toString());
+      }
+      if ((update.docChanged || update.selectionSet) && onCursorActivity) {
+        onCursorActivity(update.view);
+      }
+    }),
   ];
 
   if (fontSize) {

@@ -395,6 +395,9 @@ export const App: React.FC = () => {
               onRun={handleRun}
               isDark={isDark}
               fontSize={settings.fontSize}
+              isRunning={isRunning}
+              scriptType={activeScript.type}
+              scriptName={activeScript.name}
             />
           )}
 
