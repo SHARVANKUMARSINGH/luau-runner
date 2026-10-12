@@ -1,0 +1,31 @@
+.code-editor-container {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.code-editor-container .cm-editor {
+  height: 100%;
+  outline: none;
+}
+
+.code-editor-container .cm-scroller {
+  overflow: auto;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .code-editor-container .cm-editor {
+    font-size: 13px;
+  }
+  
+  .code-editor-container .cm-gutters {
+    min-width: 36px;
+  }
+
+  .code-editor-container .cm-tooltip-autocomplete {
+    max-width: 90vw;
+  }
+}

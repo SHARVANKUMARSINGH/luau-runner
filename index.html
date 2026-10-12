@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Luau Runner — Roblox Scripting IDE</title>
+    
+    <!-- Application Icon & Favicon -->
+    <link rel="icon" type="image/png" href="https://photos.fife.usercontent.google.com/pw/AP1GczPth8vlKlqZOws4DhUfFhjQI3hXQEj9E3Jw1izEdXuhJCFEniM1icwGsA=w1024-h1024-s-no-gm?authuser=0" />
+    <link rel="apple-touch-icon" href="https://photos.fife.usercontent.google.com/pw/AP1GczPth8vlKlqZOws4DhUfFhjQI3hXQEj9E3Jw1izEdXuhJCFEniM1icwGsA=w1024-h1024-s-no-gm?authuser=0" />
+    
+    <!-- PWA Web App Manifest -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#181825" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Luau Runner" />
+    <meta name="description" content="Professional Online Luau Runner and Roblox Scripting IDE with real WebAssembly execution." />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Register PWA service worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch((err) => {
+            console.log('SW registration error: ', err);
+          });
+        });
+      }
+    </script>
+  </body>
+</html>
