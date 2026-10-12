@@ -41,6 +41,19 @@ import {
   colorPreviewPlugin,
   robloxHoverTooltips,
 } from './roblox-highlighter';
+import { formatLuauCode } from './formatter';
+
+// ===== Code Formatter Command =====
+export function formatCodeCommand(view: EditorView): boolean {
+  const doc = view.state.doc.toString();
+  const formatted = formatLuauCode(doc);
+  if (doc !== formatted) {
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: formatted },
+    });
+  }
+  return true;
+}
 
 // Theme compartment for dynamic switching
 export const themeCompartment = new Compartment();
@@ -537,7 +550,16 @@ export function createEditorState(
   onRun?: () => void,
   onCursorActivity?: (view: EditorView) => void
 ): EditorState {
-  const customKeymaps = [];
+  const customKeymaps = [
+    {
+      key: 'Alt-Shift-f',
+      run: formatCodeCommand,
+    },
+    {
+      key: 'Shift-Alt-F',
+      run: formatCodeCommand,
+    },
+  ];
   if (onRun) {
     customKeymaps.push({
       key: 'Mod-Enter',

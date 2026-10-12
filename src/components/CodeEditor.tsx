@@ -1,6 +1,8 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { EditorView } from '@codemirror/view';
 import { syntaxHighlighting } from '@codemirror/language';
+import { undo, redo, toggleComment } from '@codemirror/commands';
+import { openSearchPanel } from '@codemirror/search';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faCode, 
@@ -8,7 +10,14 @@ import {
   faDesktop, 
   faPuzzlePiece, 
   faMagnifyingGlass,
-  faKeyboard
+  faKeyboard,
+  faRotateLeft,
+  faRotateRight,
+  faCommentDots,
+  faWandMagicSparkles,
+  faCopy,
+  faTrashCan,
+  faXmark
 } from '@fortawesome/free-solid-svg-icons';
 import type { ScriptType } from '../types';
 import { 
@@ -17,7 +26,8 @@ import {
   darkTheme, 
   lightTheme, 
   darkHighlightStyle, 
-  lightHighlightStyle 
+  lightHighlightStyle,
+  formatCodeCommand
 } from '../editor/setup';
 import './CodeEditor.css';
 
@@ -57,6 +67,83 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
   const [docStats, setDocStats] = useState({ lines: 1, chars: value.length });
   const [matchInfo, setMatchInfo] = useState<{ word: string; count: number } | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((prev) => (prev === msg ? null : prev));
+    }, 1800);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    if (viewRef.current) {
+      undo(viewRef.current);
+      viewRef.current.focus();
+    }
+  }, []);
+
+  const handleRedo = useCallback(() => {
+    if (viewRef.current) {
+      redo(viewRef.current);
+      viewRef.current.focus();
+    }
+  }, []);
+
+  const handleFind = useCallback(() => {
+    if (viewRef.current) {
+      openSearchPanel(viewRef.current);
+      viewRef.current.focus();
+    }
+  }, []);
+
+  const handleToggleComment = useCallback(() => {
+    if (viewRef.current) {
+      toggleComment(viewRef.current);
+      viewRef.current.focus();
+    }
+  }, []);
+
+  const handleFormat = useCallback(() => {
+    if (viewRef.current) {
+      const prev = viewRef.current.state.doc.toString();
+      formatCodeCommand(viewRef.current);
+      const after = viewRef.current.state.doc.toString();
+      viewRef.current.focus();
+      if (prev !== after) {
+        showToast('✨ Formatted Luau code!');
+      } else {
+        showToast('✨ Code is already clean!');
+      }
+    }
+  }, [showToast]);
+
+  const handleCopyAll = useCallback(() => {
+    if (value) {
+      navigator.clipboard.writeText(value).then(() => {
+        showToast('📋 Copied to clipboard!');
+      }).catch(() => {
+        showToast('❌ Copy failed');
+      });
+    } else {
+      showToast('⚠️ Editor is empty');
+    }
+  }, [value, showToast]);
+
+  const handleClear = useCallback(() => {
+    if (!value.trim()) return;
+    if (window.confirm('Clear all code in this script?')) {
+      if (viewRef.current) {
+        viewRef.current.dispatch({
+          changes: { from: 0, to: viewRef.current.state.doc.length, insert: '' },
+        });
+        viewRef.current.focus();
+      }
+      onChange('');
+      showToast('🧹 Script cleared');
+    }
+  }, [value, onChange, showToast]);
 
   const handleUpdate = useCallback(
     (content: string) => {
@@ -179,6 +266,91 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       {/* Dynamic Animated Shimmer Line when Luau Engine is executing */}
       {isRunning && <div className="running-shimmer-bar" />}
 
+      {/* Editor Quick Action Toolbar */}
+      <div className={`editor-quick-actions ${isDark ? 'dark' : 'light'}`}>
+        <div className="quick-actions-left">
+          <button 
+            type="button" 
+            className="quick-action-btn" 
+            onClick={handleUndo} 
+            title="Undo (Ctrl+Z)"
+          >
+            <FontAwesomeIcon icon={faRotateLeft} />
+            <span className="btn-label">Undo</span>
+          </button>
+          <button 
+            type="button" 
+            className="quick-action-btn" 
+            onClick={handleRedo} 
+            title="Redo (Ctrl+Y)"
+          >
+            <FontAwesomeIcon icon={faRotateRight} />
+            <span className="btn-label">Redo</span>
+          </button>
+          <div className="quick-action-sep" />
+          <button 
+            type="button" 
+            className="quick-action-btn" 
+            onClick={handleFind} 
+            title="Find & Replace (Ctrl+F)"
+          >
+            <FontAwesomeIcon icon={faMagnifyingGlass} />
+            <span className="btn-label">Find</span>
+          </button>
+          <button 
+            type="button" 
+            className="quick-action-btn" 
+            onClick={handleToggleComment} 
+            title="Toggle Comment (Ctrl+/)"
+          >
+            <FontAwesomeIcon icon={faCommentDots} />
+            <span className="btn-label">Comment</span>
+          </button>
+          <button 
+            type="button" 
+            className="quick-action-btn highlight-action" 
+            onClick={handleFormat} 
+            title="Format & Indent Code (Alt+Shift+F)"
+          >
+            <FontAwesomeIcon icon={faWandMagicSparkles} />
+            <span className="btn-label">Format</span>
+          </button>
+        </div>
+
+        <div className="quick-actions-right">
+          {toastMessage && (
+            <div className="editor-toast-banner" role="status">
+              <span>{toastMessage}</span>
+            </div>
+          )}
+          <button 
+            type="button" 
+            className="quick-action-btn" 
+            onClick={handleCopyAll} 
+            title="Copy All Code"
+          >
+            <FontAwesomeIcon icon={faCopy} />
+            <span className="btn-label">Copy</span>
+          </button>
+          <button 
+            type="button" 
+            className="quick-action-btn danger-hover" 
+            onClick={handleClear} 
+            title="Clear Editor"
+          >
+            <FontAwesomeIcon icon={faTrashCan} />
+          </button>
+          <button 
+            type="button" 
+            className="quick-action-btn shortcut-btn" 
+            onClick={() => setShowShortcutsModal(true)} 
+            title="Keyboard Shortcuts Cheat Sheet"
+          >
+            <FontAwesomeIcon icon={faKeyboard} />
+          </button>
+        </div>
+      </div>
+
       {/* CodeMirror 6 Mounting View */}
       <div className="code-editor-container" ref={editorRef} />
 
@@ -221,6 +393,106 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           </span>
         </div>
       </footer>
+
+      {/* Keyboard Shortcuts Cheatsheet Modal */}
+      {showShortcutsModal && (
+        <div className="shortcuts-modal-overlay" onClick={() => setShowShortcutsModal(false)}>
+          <div 
+            className={`shortcuts-modal-card ${isDark ? 'dark' : 'light'}`} 
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="shortcuts-modal-header">
+              <div className="modal-title-group">
+                <FontAwesomeIcon icon={faKeyboard} className="modal-title-icon" />
+                <h3>Keyboard Shortcuts & Cheatsheet</h3>
+              </div>
+              <button 
+                type="button" 
+                className="shortcuts-close-btn" 
+                onClick={() => setShowShortcutsModal(false)}
+                title="Close"
+              >
+                <FontAwesomeIcon icon={faXmark} />
+              </button>
+            </div>
+
+            <div className="shortcuts-modal-content">
+              <div className="shortcut-category">
+                <h4>Execution & Running</h4>
+                <div className="shortcut-row">
+                  <span>Run / Execute Active Script</span>
+                  <div className="keys"><kbd>Ctrl</kbd> + <kbd>Enter</kbd></div>
+                </div>
+              </div>
+
+              <div className="shortcut-category">
+                <h4>Code Editing & Formatting</h4>
+                <div className="shortcut-row">
+                  <span>Auto-Format & Indent Code</span>
+                  <div className="keys"><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd></div>
+                </div>
+                <div className="shortcut-row">
+                  <span>Toggle Line Comment</span>
+                  <div className="keys"><kbd>Ctrl</kbd> + <kbd>/</kbd></div>
+                </div>
+                <div className="shortcut-row">
+                  <span>Undo</span>
+                  <div className="keys"><kbd>Ctrl</kbd> + <kbd>Z</kbd></div>
+                </div>
+                <div className="shortcut-row">
+                  <span>Redo</span>
+                  <div className="keys"><kbd>Ctrl</kbd> + <kbd>Y</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd></div>
+                </div>
+                <div className="shortcut-row">
+                  <span>Indent / Unindent Selection</span>
+                  <div className="keys"><kbd>Tab</kbd> / <kbd>Shift</kbd> + <kbd>Tab</kbd></div>
+                </div>
+              </div>
+
+              <div className="shortcut-category">
+                <h4>Search & Navigation</h4>
+                <div className="shortcut-row">
+                  <span>Find & Replace in File</span>
+                  <div className="keys"><kbd>Ctrl</kbd> + <kbd>F</kbd></div>
+                </div>
+                <div className="shortcut-row">
+                  <span>Close Search / Popups</span>
+                  <div className="keys"><kbd>Esc</kbd></div>
+                </div>
+              </div>
+
+              <div className="shortcut-category">
+                <h4>Roblox IntelliSense & Luau</h4>
+                <div className="shortcut-row">
+                  <span>Trigger Autocomplete</span>
+                  <div className="keys"><kbd>Ctrl</kbd> + <kbd>Space</kbd></div>
+                </div>
+                <div className="shortcut-row">
+                  <span>Hover Documentation</span>
+                  <span className="feature-tag">Hover any Roblox API / Service</span>
+                </div>
+                <div className="shortcut-row">
+                  <span>Live Color Swatches</span>
+                  <span className="feature-tag">Color3.fromRGB, fromHex</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="shortcuts-modal-footer">
+              <span className="shortcuts-hint">Press <kbd>Esc</kbd> or click outside to dismiss</span>
+              <button 
+                type="button" 
+                className="btn-primary-close" 
+                onClick={() => setShowShortcutsModal(false)}
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

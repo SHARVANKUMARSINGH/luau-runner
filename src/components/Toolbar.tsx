@@ -12,7 +12,7 @@ import {
   faBookOpen, 
   faCircleQuestion, 
   faDownload,
-  faBolt,
+  faCode,
   faTrash
 } from '@fortawesome/free-solid-svg-icons';
 import type { ThemeMode } from '../types';
@@ -36,7 +36,7 @@ interface ToolbarProps {
   onDownloadZip: () => void;
 }
 
-const BRAND_ICON_URL = "https://photos.fife.usercontent.google.com/pw/AP1GczPth8vlKlqZOws4DhUfFhjQI3hXQEj9E3Jw1izEdXuhJCFEniM1icwGsA=w1024-h1024-s-no-gm?authuser=0";
+const BRAND_ICON_URL = "/app-icon.png";
 
 const Toolbar: React.FC<ToolbarProps> = ({
   isRunning,
@@ -71,7 +71,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
           />
         ) : (
           <div className="brand-logo-fallback">
-            <FontAwesomeIcon icon={faBolt} />
+            <FontAwesomeIcon icon={faCode} />
           </div>
         )}
         <div className="brand-info">

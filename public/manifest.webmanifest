@@ -9,14 +9,20 @@
   "orientation": "any",
   "icons": [
     {
-      "src": "https://photos.fife.usercontent.google.com/pw/AP1GczPth8vlKlqZOws4DhUfFhjQI3hXQEj9E3Jw1izEdXuhJCFEniM1icwGsA=w1024-h1024-s-no-gm?authuser=0",
-      "sizes": "1024x1024",
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
       "src": "/app-icon.png",
-      "sizes": "512x512",
+      "sizes": "1024x1024",
       "type": "image/png"
     }
   ]
