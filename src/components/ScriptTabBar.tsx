@@ -63,25 +63,31 @@ const ScriptTabBar: React.FC<ScriptTabBarProps> = ({
               <span className="tab-name">{script.name}</span>
               <span className="tab-type-badge">{script.type === 'ServerScript' ? 'Server' : script.type === 'LocalScript' ? 'Local' : script.type === 'ModuleScript' ? 'Module' : 'Standard'}</span>
 
-              {/* Actions for non-default or custom files */}
-              {!script.isDefault && (
-                <div className="tab-actions" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="tab-action-btn"
-                    onClick={() => onRenameScript(script)}
-                    title="Rename script"
-                  >
-                    <FontAwesomeIcon icon={faPen} />
-                  </button>
-                  <button
-                    className="tab-action-btn btn-delete"
-                    onClick={() => onDeleteScript(script)}
-                    title="Delete script"
-                  >
-                    <FontAwesomeIcon icon={faXmark} />
-                  </button>
-                </div>
-              )}
+              {/* Actions for all scripts: rename and delete */}
+              <div className="tab-actions" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  className="tab-action-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRenameScript(script);
+                  }}
+                  title={`Rename "${script.name}"`}
+                >
+                  <FontAwesomeIcon icon={faPen} />
+                </button>
+                <button
+                  type="button"
+                  className="tab-action-btn btn-delete"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteScript(script);
+                  }}
+                  title={`Delete "${script.name}"`}
+                >
+                  <FontAwesomeIcon icon={faXmark} />
+                </button>
+              </div>
             </div>
           );
         })}

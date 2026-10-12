@@ -211,17 +211,38 @@ export const App: React.FC = () => {
 
   // Delete script
   const handleDeleteScript = useCallback((script: ScriptFile) => {
-    if (script.isDefault) return;
     if (confirm(`Are you sure you want to delete "${script.name}"?`)) {
       setScripts((prev) => {
         const filtered = prev.filter((s) => s.id !== script.id);
+        if (filtered.length === 0) {
+          // If all scripts are deleted, automatically create a fresh default script
+          const freshScript = createNewScript('Script 1', 'Script', '-- New Script\nprint("Hello from Luau!")\n');
+          setActiveScriptId(freshScript.id);
+          return [freshScript];
+        }
         if (activeScriptId === script.id) {
           setActiveScriptId(filtered[0]?.id || 'default_script');
         }
         return filtered;
       });
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `sys_del_${Date.now()}`,
+          type: 'info',
+          text: `🗑️ Deleted script "${script.name}"`,
+          timestamp: Date.now(),
+        },
+      ]);
     }
   }, [activeScriptId]);
+
+  // Delete current active script
+  const handleDeleteActiveScript = useCallback(() => {
+    if (activeScript) {
+      handleDeleteScript(activeScript);
+    }
+  }, [activeScript, handleDeleteScript]);
 
   // Load example template
   const handleLoadTemplate = useCallback((tpl: ScriptTemplate) => {
@@ -344,6 +365,7 @@ export const App: React.FC = () => {
         }
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         onOpenNewScript={() => setIsNewScriptModalOpen(true)}
+        onDeleteActiveScript={handleDeleteActiveScript}
         onOpenExamples={() => setIsExamplesModalOpen(true)}
         onOpenDocs={() => setIsDocsModalOpen(true)}
         onDownloadZip={handleDownloadZip}

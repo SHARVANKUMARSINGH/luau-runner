@@ -26,6 +26,10 @@ ${s.content}
 
   return `
 -- [[ Roblox Simulator Luau Runtime ]] --
+-- Common boolean typos and mobile autocorrect fallbacks
+ture = true
+flase = false
+
 local __MODULE_SOURCES__ = {}
 local __MODULE_CACHE__ = {}
 ${moduleEntries.join('\n')}

@@ -67,6 +67,136 @@ export function stopExecution(): void {
 }
 
 /**
+ * Recursively converts a LuauTable or proxy object from luau-web into native JS objects and arrays
+ */
+export function luauTableToJs(val: unknown): unknown {
+  if (val === null || val === undefined) return val;
+  if (typeof val !== 'object') return val;
+
+  if (Array.isArray(val)) {
+    return val.map((v) => luauTableToJs(v));
+  }
+
+  // Handle iterable LuauTable / Map proxy from luau-web
+  if (typeof (val as Record<symbol, unknown>)[Symbol.iterator] === 'function') {
+    try {
+      const entries = Array.from(val as Iterable<[unknown, unknown]>);
+      const isArray = entries.length === 0 || entries.every(([k]) => typeof k === 'number');
+      if (isArray) {
+        return entries.map(([, v]) => luauTableToJs(v));
+      }
+      const obj: Record<string, unknown> = {};
+      for (const [k, v] of entries) {
+        obj[String(k)] = luauTableToJs(v);
+      }
+      return obj;
+    } catch {
+      // Fallback below
+    }
+  }
+
+  try {
+    const obj: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+      obj[k] = luauTableToJs(v);
+    }
+    return obj;
+  } catch {
+    return val;
+  }
+}
+
+/**
+ * Sanitizes and guarantees that an ExplorerNode is a safe native JS object
+ * with children guaranteed to be a native JS Array.
+ */
+export function sanitizeExplorerNode(raw: unknown): ExplorerNode {
+  let converted: Record<string, unknown>;
+
+  if (typeof raw === 'string') {
+    try {
+      converted = JSON.parse(raw);
+    } catch {
+      converted = {};
+    }
+  } else if (raw && typeof raw === 'object') {
+    converted = (luauTableToJs(raw) as Record<string, unknown>) || {};
+  } else {
+    converted = {};
+  }
+
+  const rawChildren = converted.children;
+  let children: ExplorerNode[] = [];
+  if (Array.isArray(rawChildren)) {
+    children = rawChildren.map((c) => sanitizeExplorerNode(c));
+  } else if (rawChildren && typeof rawChildren === 'object') {
+    children = Object.values(rawChildren).map((c) => sanitizeExplorerNode(c));
+  }
+
+  let properties: Record<string, unknown> = {};
+  if (converted.properties && typeof converted.properties === 'object' && !Array.isArray(converted.properties)) {
+    properties = converted.properties as Record<string, unknown>;
+  }
+
+  return {
+    name: String(converted.name || 'Instance'),
+    className: String(converted.className || 'Instance'),
+    path: String(converted.path || ''),
+    children,
+    properties,
+  };
+}
+
+/**
+ * Preprocesses user code to handle common mobile auto-capitalization errors
+ * and common Lua typos like 'while ture do'.
+ */
+export function preprocessUserCode(code: string): { processed: string; notices: string[] } {
+  const notices: string[] = [];
+  let processed = code;
+
+  // 1. Detect common typo 'ture' -> 'true'
+  if (/\bture\b/.test(processed)) {
+    notices.push("Typo notice: 'ture' detected in script; aliased to 'true' for execution.");
+  }
+
+  // 2. Detect common typo 'flase' -> 'false'
+  if (/\bflase\b/.test(processed)) {
+    notices.push("Typo notice: 'flase' detected in script; aliased to 'false' for execution.");
+  }
+
+  // 3. Preprocess mobile auto-capitalized keywords at the start of statements/lines
+  const mobileKeywords = [
+    { cap: 'Local', lower: 'local' },
+    { cap: 'While', lower: 'while' },
+    { cap: 'Function', lower: 'function' },
+    { cap: 'Repeat', lower: 'repeat' },
+    { cap: 'Until', lower: 'until' },
+    { cap: 'Return', lower: 'return' },
+    { cap: 'If', lower: 'if' },
+    { cap: 'Elseif', lower: 'elseif' },
+    { cap: 'Else', lower: 'else' },
+    { cap: 'For', lower: 'for' },
+    { cap: 'Do', lower: 'do' },
+  ];
+
+  let autocorrectedAny = false;
+  for (const { cap, lower } of mobileKeywords) {
+    const lineStartRegex = new RegExp(`^(\\s*)${cap}\\b`, 'gm');
+    if (lineStartRegex.test(processed)) {
+      processed = processed.replace(lineStartRegex, `$1${lower}`);
+      autocorrectedAny = true;
+    }
+  }
+
+  if (autocorrectedAny) {
+    notices.push("Mobile keyboard notice: Auto-corrected line-start capitalized keywords (e.g. 'Local' -> 'local').");
+  }
+
+  return { processed, notices };
+}
+
+/**
  * Executes a Luau script using the authentic luau-web WebAssembly VM
  */
 export async function executeLuauScript(
@@ -176,13 +306,19 @@ export async function executeLuauScript(
 
       __bridge_on_tree_sync: (treeData: unknown) => {
         if (callbacks.onTreeSync && treeData) {
-          callbacks.onTreeSync(treeData as ExplorerNode);
+          try {
+            const sanitizedTree = sanitizeExplorerNode(treeData);
+            callbacks.onTreeSync(sanitizedTree);
+          } catch (err) {
+            console.warn('Failed to sanitize explorer tree:', err);
+          }
         }
       },
     };
 
     // Configure options in luau-web
     luauWebModule.InternalLuauWasmModule.options.set('LUA_NONSTRICT_READONLY', true);
+    luauWebModule.InternalLuauWasmModule.options.set('LUA_IMPLICIT_ARRAYS_TO_JS_ARRAYS', true);
 
     // Create state
     state = await luauWebModule.LuauState.createAsync(globals);
@@ -191,8 +327,16 @@ export async function executeLuauScript(
     luauWebModule.InternalLuauWasmModule.states[0] =
       luauWebModule.InternalLuauWasmModule.states[state.stateIdx];
 
+    // Preprocess code for common mobile keyboard auto-capitalization and typos
+    const { processed: processedCode, notices } = preprocessUserCode(activeScript.content);
+
+    // Output helpful notices if any typos or mobile auto-caps were corrected
+    for (const notice of notices) {
+      callbacks.onOutput(createMsg('info', `ℹ️ ${notice}`, activeScript.name));
+    }
+
     // Combine preamble + user script + tree sync call
-    const fullCode = `${preamble}\n\n-- [[ User Script ]] --\n${activeScript.content}\n\n__sync_explorer_tree()\n`;
+    const fullCode = `${preamble}\n\n-- [[ User Script ]] --\n${processedCode}\n\n__sync_explorer_tree()\n`;
 
     // Compile script with Luau
     const fn = state.loadstring(fullCode, activeScript.name, true);

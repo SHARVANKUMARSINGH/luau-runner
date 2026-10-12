@@ -177,6 +177,16 @@
   color: #df8e1d;
 }
 
+.btn-delete-script:hover {
+  color: #f38ba8 !important;
+  border-color: rgba(243, 139, 168, 0.4) !important;
+}
+
+.app-toolbar.light .btn-delete-script:hover {
+  color: #d20f39 !important;
+  border-color: rgba(210, 15, 57, 0.4) !important;
+}
+
 /* Responsive for Mobile / Android */
 @media (max-width: 768px) {
   .app-toolbar {

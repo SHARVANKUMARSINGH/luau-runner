@@ -125,28 +125,46 @@
 .tab-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
-  margin-left: 2px;
+  gap: 3px;
+  margin-left: 4px;
 }
 
 .tab-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 3px 5px;
+  min-width: 18px;
+  min-height: 18px;
   border-radius: 3px;
-  font-size: 10px;
+  font-size: 11px;
   color: inherit;
-  opacity: 0.5;
-  transition: all 0.12s;
+  opacity: 0.55;
+  transition: all 0.15s ease;
+}
+
+.script-tab.active .tab-action-btn {
+  opacity: 0.8;
 }
 
 .tab-action-btn:hover {
   opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.script-tab-bar.light .tab-action-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .btn-delete:hover {
-  color: #f38ba8;
+  color: #f38ba8 !important;
+}
+
+.script-tab-bar.light .btn-delete:hover {
+  color: #d20f39 !important;
 }
 
 /* New Tab Button */

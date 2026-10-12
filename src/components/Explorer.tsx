@@ -81,6 +81,38 @@ const CLASS_ICONS: Record<string, typeof faCube> = {
   Tool: faWrench,
 };
 
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+  fallback: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error?: Error;
+}
+
+class ExplorerErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Explorer render error caught:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
 interface TreeNodeProps {
   node: ExplorerNode;
   depth: number;
@@ -97,9 +129,18 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   onSelect 
 }) => {
   const [expanded, setExpanded] = useState(depth < 2);
-  const hasChildren = node.children && node.children.length > 0;
-  const isSelected = selectedPath === node.path;
-  const icon = CLASS_ICONS[node.className] || faCube;
+  
+  if (!node) return null;
+
+  const rawChildren = node.children;
+  const children: ExplorerNode[] = Array.isArray(rawChildren) 
+    ? rawChildren 
+    : (rawChildren && typeof rawChildren === 'object' ? Object.values(rawChildren) : []);
+  const hasChildren = children.length > 0;
+  const isSelected = selectedPath === (node.path ?? '');
+  const nodeClassName = node.className || 'Instance';
+  const nodeName = node.name || 'Unnamed';
+  const icon = CLASS_ICONS[nodeClassName] || faCube;
 
   const handleRowClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -128,17 +169,17 @@ const TreeNode: React.FC<TreeNodeProps> = ({
           )}
         </span>
         <FontAwesomeIcon 
-          icon={expanded && hasChildren && node.className === 'Folder' ? faFolderOpen : icon} 
+          icon={expanded && hasChildren && nodeClassName === 'Folder' ? faFolderOpen : icon} 
           className="tree-class-icon" 
         />
-        <span className="tree-node-name">{node.name}</span>
-        <span className="tree-node-class">{node.className}</span>
+        <span className="tree-node-name">{nodeName}</span>
+        <span className="tree-node-class">{nodeClassName}</span>
       </div>
       {expanded && hasChildren && (
         <div className="tree-children">
-          {node.children.map((child, i) => (
+          {children.map((child, i) => (
             <TreeNode 
-              key={`${child.path}_${i}`} 
+              key={`${child?.path || child?.name || i}_${i}`} 
               node={child} 
               depth={depth + 1} 
               isDark={isDark}
@@ -179,27 +220,45 @@ const Explorer: React.FC<ExplorerProps> = ({ tree, isOpen, onClose, onRefresh, i
         </div>
 
         <div className="explorer-body">
-          {tree ? (
-            <TreeNode 
-              node={tree} 
-              depth={0} 
-              isDark={isDark}
-              selectedPath={selectedNode?.path ?? null}
-              onSelect={setSelectedNode}
-            />
-          ) : (
-            <div className="explorer-empty">
-              <FontAwesomeIcon icon={faCircleInfo} />
-              <span>No DataModel active</span>
-            </div>
-          )}
+          <ExplorerErrorBoundary
+            fallback={
+              <div className="explorer-empty">
+                <FontAwesomeIcon icon={faCircleInfo} />
+                <span>Explorer encountered a display issue</span>
+                {onRefresh && (
+                  <button 
+                    className="explorer-btn" 
+                    style={{ marginTop: 8, padding: '4px 10px', fontSize: 12 }} 
+                    onClick={onRefresh}
+                  >
+                    <FontAwesomeIcon icon={faRotateRight} /> Reset DataModel
+                  </button>
+                )}
+              </div>
+            }
+          >
+            {tree ? (
+              <TreeNode 
+                node={tree} 
+                depth={0} 
+                isDark={isDark}
+                selectedPath={selectedNode?.path ?? null}
+                onSelect={setSelectedNode}
+              />
+            ) : (
+              <div className="explorer-empty">
+                <FontAwesomeIcon icon={faCircleInfo} />
+                <span>No DataModel active</span>
+              </div>
+            )}
+          </ExplorerErrorBoundary>
         </div>
 
         {/* Selected Instance Property Inspector */}
         {selectedNode && (
           <div className="explorer-inspector">
             <div className="inspector-header">
-              <span className="inspector-title">Properties: {selectedNode.name}</span>
+              <span className="inspector-title">Properties: {selectedNode.name || 'Instance'}</span>
               <button className="inspector-close" onClick={() => setSelectedNode(null)}>
                 <FontAwesomeIcon icon={faXmark} />
               </button>
@@ -207,26 +266,31 @@ const Explorer: React.FC<ExplorerProps> = ({ tree, isOpen, onClose, onRefresh, i
             <div className="inspector-properties">
               <div className="property-row">
                 <span className="prop-name">ClassName</span>
-                <span className="prop-value">{selectedNode.className}</span>
+                <span className="prop-value">{selectedNode.className || 'Instance'}</span>
               </div>
               <div className="property-row">
                 <span className="prop-name">Name</span>
-                <span className="prop-value">{selectedNode.name}</span>
+                <span className="prop-value">{selectedNode.name || 'Unnamed'}</span>
               </div>
               <div className="property-row">
                 <span className="prop-name">Full Path</span>
-                <span className="prop-value font-mono">{selectedNode.path}</span>
+                <span className="prop-value font-mono">{selectedNode.path || ''}</span>
               </div>
               <div className="property-row">
                 <span className="prop-name">Children</span>
-                <span className="prop-value">{selectedNode.children?.length ?? 0}</span>
+                <span className="prop-value">
+                  {Array.isArray(selectedNode.children) ? selectedNode.children.length : 0}
+                </span>
               </div>
-              {selectedNode.properties && Object.entries(selectedNode.properties).map(([k, v]) => (
-                <div key={k} className="property-row">
-                  <span className="prop-name">{k}</span>
-                  <span className="prop-value">{String(v)}</span>
-                </div>
-              ))}
+              {selectedNode.properties && 
+                typeof selectedNode.properties === 'object' && 
+                !Array.isArray(selectedNode.properties) && 
+                Object.entries(selectedNode.properties).map(([k, v]) => (
+                  <div key={k} className="property-row">
+                    <span className="prop-name">{k}</span>
+                    <span className="prop-value">{String(v ?? '')}</span>
+                  </div>
+                ))}
             </div>
           </div>
         )}

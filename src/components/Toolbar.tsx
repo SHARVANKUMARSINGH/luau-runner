@@ -12,7 +12,8 @@ import {
   faBookOpen, 
   faCircleQuestion, 
   faDownload,
-  faBolt
+  faBolt,
+  faTrash
 } from '@fortawesome/free-solid-svg-icons';
 import type { ThemeMode } from '../types';
 import './Toolbar.css';
@@ -29,6 +30,7 @@ interface ToolbarProps {
   onToggleTheme: () => void;
   onOpenSettings: () => void;
   onOpenNewScript: () => void;
+  onDeleteActiveScript?: () => void;
   onOpenExamples: () => void;
   onOpenDocs: () => void;
   onDownloadZip: () => void;
@@ -48,6 +50,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onToggleTheme,
   onOpenSettings,
   onOpenNewScript,
+  onDeleteActiveScript,
   onOpenExamples,
   onOpenDocs,
   onDownloadZip,
@@ -148,6 +151,17 @@ const Toolbar: React.FC<ToolbarProps> = ({
           <FontAwesomeIcon icon={faBookOpen} />
           <span className="btn-text">Examples</span>
         </button>
+
+        {onDeleteActiveScript && (
+          <button 
+            className="toolbar-btn btn-delete-script" 
+            onClick={onDeleteActiveScript}
+            title="Delete current active script"
+          >
+            <FontAwesomeIcon icon={faTrash} />
+            <span className="btn-text">Delete</span>
+          </button>
+        )}
       </div>
 
       <div className="toolbar-spacer" />
