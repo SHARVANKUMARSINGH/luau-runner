@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "push-github": "node push-to-github.mjs"
+    "push-github": "node push-to-github.mjs",
+    "update-repo": "node update-github.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
