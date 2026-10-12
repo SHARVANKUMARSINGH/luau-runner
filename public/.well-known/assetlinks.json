@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "dev.pages.luau_runner.twa",
+      "sha256_cert_fingerprints": [
+        "37:FB:1C:FE:78:6C:64:B5:4A:B5:3B:08:91:8E:CF:10:82:BD:FC:83:41:36:79:25:AB:FD:57:3A:89:79:73:77"
+      ]
+    }
+  }
+]

@@ -241,6 +241,112 @@ export const TABLE_API: CompletionItem[] = [
   { label: 'pack', type: 'function', detail: '(...) → table' },
 ];
 
+// Vector3 API
+export const VECTOR3_API: CompletionItem[] = [
+  { label: 'new', type: 'function', detail: '(x?, y?, z?) → Vector3', info: 'Creates a 3D vector' },
+  { label: 'zero', type: 'constant', detail: 'Vector3 (0, 0, 0)', info: 'Zero vector' },
+  { label: 'one', type: 'constant', detail: 'Vector3 (1, 1, 1)', info: 'Unit vector' },
+  { label: 'xAxis', type: 'constant', detail: 'Vector3 (1, 0, 0)', info: 'X axis unit vector' },
+  { label: 'yAxis', type: 'constant', detail: 'Vector3 (0, 1, 0)', info: 'Y axis unit vector' },
+  { label: 'zAxis', type: 'constant', detail: 'Vector3 (0, 0, 1)', info: 'Z axis unit vector' },
+];
+
+// CFrame API
+export const CFRAME_API: CompletionItem[] = [
+  { label: 'new', type: 'function', detail: '(pos?, lookAt?) → CFrame', info: 'Creates a coordinate frame' },
+  { label: 'Angles', type: 'function', detail: '(rx, ry, rz) → CFrame', info: 'Creates CFrame from Euler angles (radians)' },
+  { label: 'identity', type: 'constant', detail: 'CFrame', info: 'Identity coordinate frame' },
+  { label: 'lookAt', type: 'function', detail: '(at, target) → CFrame', info: 'CFrame facing a target' },
+  { label: 'fromEulerAnglesXYZ', type: 'function', detail: '(rx, ry, rz) → CFrame', info: 'Euler angles XYZ' },
+];
+
+// Color3 API
+export const COLOR3_API: CompletionItem[] = [
+  { label: 'fromRGB', type: 'function', detail: '(r, g, b) → Color3', info: 'Color from 0-255 RGB values' },
+  { label: 'fromHex', type: 'function', detail: '(hexString) → Color3', info: 'Color from hex string (e.g. #FFAA00)' },
+  { label: 'new', type: 'function', detail: '(r?, g?, b?) → Color3', info: 'Color from 0-1 values' },
+  { label: 'fromHSV', type: 'function', detail: '(h, s, v) → Color3', info: 'Color from hue, saturation, value' },
+];
+
+// UDim2 API
+export const UDIM2_API: CompletionItem[] = [
+  { label: 'new', type: 'function', detail: '(xScale, xOffset, yScale, yOffset) → UDim2', info: '2D UI dimension' },
+  { label: 'fromScale', type: 'function', detail: '(xScale, yScale) → UDim2', info: 'Scale-only UDim2' },
+  { label: 'fromOffset', type: 'function', detail: '(xOffset, yOffset) → UDim2', info: 'Offset-only UDim2' },
+];
+
+// UDim API
+export const UDIM_API: CompletionItem[] = [
+  { label: 'new', type: 'function', detail: '(scale, offset) → UDim', info: '1D UI dimension' },
+];
+
+// BrickColor API
+export const BRICKCOLOR_API: CompletionItem[] = [
+  { label: 'new', type: 'function', detail: '(name | number | color) → BrickColor', info: 'Roblox palette color' },
+  { label: 'random', type: 'function', detail: '() → BrickColor', info: 'Random BrickColor' },
+  { label: 'Red', type: 'function', detail: '() → BrickColor' },
+  { label: 'Blue', type: 'function', detail: '() → BrickColor' },
+  { label: 'Green', type: 'function', detail: '() → BrickColor' },
+  { label: 'Yellow', type: 'function', detail: '() → BrickColor' },
+  { label: 'White', type: 'function', detail: '() → BrickColor' },
+  { label: 'Black', type: 'function', detail: '() → BrickColor' },
+];
+
+// TweenInfo API
+export const TWEENINFO_API: CompletionItem[] = [
+  { label: 'new', type: 'function', detail: '(time?, style?, dir?, count?, reverses?, delay?) → TweenInfo', info: 'Tween parameters' },
+];
+
+// Enum API
+export const ENUM_API: CompletionItem[] = [
+  { label: 'Material', type: 'class', detail: 'Enum', info: 'Part materials (Plastic, Neon, Wood, etc.)' },
+  { label: 'EasingStyle', type: 'class', detail: 'Enum', info: 'Tween easing styles (Linear, Quad, Bounce, etc.)' },
+  { label: 'EasingDirection', type: 'class', detail: 'Enum', info: 'Tween easing directions (In, Out, InOut)' },
+  { label: 'KeyCode', type: 'class', detail: 'Enum', info: 'Keyboard keys (E, Space, Return, etc.)' },
+  { label: 'UserInputType', type: 'class', detail: 'Enum', info: 'Input types (MouseButton1, Touch, Keyboard)' },
+  { label: 'Font', type: 'class', detail: 'Enum', info: 'UI font families (SourceSans, Gotham, etc.)' },
+  { label: 'HumanoidStateType', type: 'class', detail: 'Enum', info: 'Humanoid states (Jumping, Freefall, etc.)' },
+];
+
+// BasePart properties & events
+export const BASEPART_API: CompletionItem[] = [
+  { label: 'Position', type: 'property', detail: 'Vector3', info: '3D world position' },
+  { label: 'CFrame', type: 'property', detail: 'CFrame', info: 'Position and orientation' },
+  { label: 'Size', type: 'property', detail: 'Vector3', info: 'Dimensions of the part' },
+  { label: 'Color', type: 'property', detail: 'Color3', info: 'Color3 of the part' },
+  { label: 'BrickColor', type: 'property', detail: 'BrickColor', info: 'Palette color' },
+  { label: 'Material', type: 'property', detail: 'Enum.Material', info: 'Physical appearance' },
+  { label: 'Transparency', type: 'property', detail: 'number (0-1)', info: 'Opacity' },
+  { label: 'Reflectance', type: 'property', detail: 'number (0-1)', info: 'Surface reflectiveness' },
+  { label: 'Anchored', type: 'property', detail: 'boolean', info: 'Whether part is immovable' },
+  { label: 'CanCollide', type: 'property', detail: 'boolean', info: 'Whether part collides' },
+  { label: 'CanTouch', type: 'property', detail: 'boolean', info: 'Whether part fires Touched events' },
+  { label: 'CastShadow', type: 'property', detail: 'boolean', info: 'Whether part casts shadows' },
+  { label: 'Touched', type: 'property', detail: 'RBXScriptSignal', info: 'Fires when touching another part' },
+  { label: 'TouchEnded', type: 'property', detail: 'RBXScriptSignal', info: 'Fires when touch ends' },
+];
+
+// Players API
+export const PLAYERS_API: CompletionItem[] = [
+  { label: 'LocalPlayer', type: 'property', detail: 'Player? (client)', info: 'The local client Player' },
+  { label: 'PlayerAdded', type: 'property', detail: 'RBXScriptSignal', info: 'Fires when a player joins' },
+  { label: 'PlayerRemoving', type: 'property', detail: 'RBXScriptSignal', info: 'Fires when a player leaves' },
+  { label: 'GetPlayers', type: 'method', detail: '() → {Player}', info: 'Returns array of all players' },
+  { label: 'GetPlayerFromCharacter', type: 'method', detail: '(char) → Player?', info: 'Finds Player owning character' },
+];
+
+// Humanoid API
+export const HUMANOID_API: CompletionItem[] = [
+  { label: 'Health', type: 'property', detail: 'number', info: 'Current health' },
+  { label: 'MaxHealth', type: 'property', detail: 'number', info: 'Maximum health' },
+  { label: 'WalkSpeed', type: 'property', detail: 'number', info: 'Movement speed (default 16)' },
+  { label: 'JumpPower', type: 'property', detail: 'number', info: 'Jump power (default 50)' },
+  { label: 'JumpHeight', type: 'property', detail: 'number', info: 'Jump height (default 7.2)' },
+  { label: 'TakeDamage', type: 'method', detail: '(amount: number) → void', info: 'Damages humanoid' },
+  { label: 'MoveTo', type: 'method', detail: '(target: Vector3) → void', info: 'Walks to position' },
+  { label: 'Died', type: 'property', detail: 'RBXScriptSignal', info: 'Fires when health reaches 0' },
+];
+
 // Code snippets
 export const CODE_SNIPPETS = [
   {
@@ -327,6 +433,21 @@ export const CODE_SNIPPETS = [
     label: 'ModuleScript template',
     snippet: 'local ${1:Module} = {}\n\nfunction ${1:Module}.${2:method}(${3:args})\n\t${4:-- body}\nend\n\nreturn ${1:Module}',
     detail: 'ModuleScript boilerplate',
+  },
+  {
+    label: 'while true do loop',
+    snippet: 'while true do\n\ttask.wait(${1:1})\n\t${2:print("looping")}\nend',
+    detail: 'Safe infinite loop with task.wait',
+  },
+  {
+    label: 'Touched event',
+    snippet: '${1:part}.Touched:Connect(function(${2:hit})\n\tlocal ${3:humanoid} = ${2:hit}.Parent:FindFirstChildWhichIsA("Humanoid")\n\tif ${3:humanoid} then\n\t\t${4:-- handle player touch}\n\tend\nend)',
+    detail: 'Part Touched callback',
+  },
+  {
+    label: 'PlayerAdded event',
+    snippet: 'game:GetService("Players").PlayerAdded:Connect(function(${1:player})\n\tprint(${1:player}.Name .. " joined the game!")\n\t${2:-- setup player}\nend)',
+    detail: 'Players.PlayerAdded handler',
   },
   {
     label: 'type annotation',

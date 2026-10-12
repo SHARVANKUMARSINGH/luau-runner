@@ -33,6 +33,17 @@ import {
   MATH_API,
   STRING_API,
   TABLE_API,
+  VECTOR3_API,
+  CFRAME_API,
+  COLOR3_API,
+  UDIM2_API,
+  UDIM_API,
+  BRICKCOLOR_API,
+  TWEENINFO_API,
+  ENUM_API,
+  BASEPART_API,
+  PLAYERS_API,
+  HUMANOID_API,
   CODE_SNIPPETS,
   type CompletionItem,
 } from './completions';
@@ -42,6 +53,11 @@ import {
   robloxHoverTooltips,
 } from './roblox-highlighter';
 import { formatLuauCode } from './formatter';
+import {
+  handleLuauEnter,
+  luauAutoCorrectExtension,
+  LUAU_AUTOCORRECT_MAP,
+} from './autoclose';
 
 // ===== Code Formatter Command =====
 export function formatCodeCommand(view: EditorView): boolean {
@@ -399,7 +415,7 @@ export const lightHighlightStyle = HighlightStyle.define([
   { tag: tags.self, color: '#d20f39' },
 ]);
 
-// ===== Autocomplete Provider =====
+// ===== Autocomplete Provider (Fuzzy, Typo-Tolerant & Roblox IntelliSense) =====
 function luauCompletions(context: CompletionContext) {
   // Get the word before the cursor
   const word = context.matchBefore(/[\w.:]*/);
@@ -414,39 +430,72 @@ function luauCompletions(context: CompletionContext) {
 
   // Determine context based on what's before the cursor
   if (text.includes(':') || text.includes('.')) {
-    const parts = text.split(/[.:]/);
-    const prefix = parts[0].toLowerCase();
-    const separator = text.includes(':') ? ':' : '.';
+    const lastSep = Math.max(text.lastIndexOf('.'), text.lastIndexOf(':'));
+    const separator = text[lastSep];
+    const prefixFull = text.slice(0, lastSep);
+    const parts = prefixFull.split(/[.:]/);
+    const lastToken = parts[parts.length - 1].toLowerCase();
+    const query = text.slice(lastSep + 1).toLowerCase();
 
-    if (prefix === 'game' && separator === ':') {
+    if (lastToken === 'game' && separator === ':') {
       completions = GAME_API.filter((c) => c.type === 'method').map(toCompletion);
-    } else if (prefix === 'game' && separator === '.') {
+    } else if (lastToken === 'game' && separator === '.') {
       completions = GAME_API.map(toCompletion);
-    } else if (prefix === 'task') {
+    } else if (lastToken === 'task') {
       completions = TASK_API.map(toCompletion);
-    } else if (prefix === 'math') {
+    } else if (lastToken === 'math') {
       completions = MATH_API.map(toCompletion);
-    } else if (prefix === 'string') {
+    } else if (lastToken === 'string') {
       completions = STRING_API.map(toCompletion);
-    } else if (prefix === 'table') {
+    } else if (lastToken === 'table') {
       completions = TABLE_API.map(toCompletion);
-    } else if (prefix === 'instance' && separator === '.') {
+    } else if (lastToken === 'vector3') {
+      completions = VECTOR3_API.map(toCompletion);
+    } else if (lastToken === 'cframe') {
+      completions = CFRAME_API.map(toCompletion);
+    } else if (lastToken === 'color3') {
+      completions = COLOR3_API.map(toCompletion);
+    } else if (lastToken === 'udim2') {
+      completions = UDIM2_API.map(toCompletion);
+    } else if (lastToken === 'udim') {
+      completions = UDIM_API.map(toCompletion);
+    } else if (lastToken === 'brickcolor') {
+      completions = BRICKCOLOR_API.map(toCompletion);
+    } else if (lastToken === 'tweeninfo') {
+      completions = TWEENINFO_API.map(toCompletion);
+    } else if (lastToken === 'enum') {
+      completions = ENUM_API.map(toCompletion);
+    } else if (lastToken === 'players') {
+      completions = PLAYERS_API.map(toCompletion);
+    } else if (lastToken === 'workspace') {
+      completions = [
+        ...BASEPART_API.map(toCompletion),
+        ...INSTANCE_METHODS.map(toCompletion),
+        ...INSTANCE_PROPERTIES.map(toCompletion),
+      ];
+    } else if (lastToken === 'instance' && separator === '.') {
       completions = [
         { label: 'new', type: 'function', detail: '(className, parent?) → Instance', info: 'Creates a new Instance' },
       ];
     } else {
-      // Generic instance methods/properties
+      // Generic instance / signal methods & properties
       completions = [
         ...INSTANCE_METHODS.map(toCompletion),
         ...INSTANCE_PROPERTIES.map(toCompletion),
         ...INSTANCE_EVENTS.map(toCompletion),
         ...SIGNAL_METHODS.map(toCompletion),
         ...REMOTE_EVENT_API.map(toCompletion),
+        ...BASEPART_API.map(toCompletion),
+        ...HUMANOID_API.map(toCompletion),
       ];
     }
 
-    // Adjust the from position for dot/colon completion
-    const lastSep = Math.max(text.lastIndexOf('.'), text.lastIndexOf(':'));
+    if (query.length > 0) {
+      completions = completions.filter((c) =>
+        c.label.toLowerCase().includes(query)
+      );
+    }
+
     return {
       from: word.from + lastSep + 1,
       options: completions,
@@ -482,19 +531,49 @@ function luauCompletions(context: CompletionContext) {
     })),
   ];
 
-  // Filter by current word
-  if (text.length > 0) {
-    const lower = text.toLowerCase();
-    completions = completions.filter(
-      (c) => c.label.toLowerCase().includes(lower)
-    );
+  // Smart Typo Auto-Correct and Fuzzy Ranking
+  const lower = text.toLowerCase();
+  const correctedTypo = LUAU_AUTOCORRECT_MAP[text] || LUAU_AUTOCORRECT_MAP[lower];
+  const results: Completion[] = [];
+
+  if (correctedTypo) {
+    results.push({
+      label: correctedTypo,
+      type: 'keyword',
+      detail: `✨ Auto-correct: ${correctedTypo}`,
+      info: `Suggested replacement for "${text}"`,
+      boost: 100,
+    });
+  }
+
+  for (const item of completions) {
+    const itemLower = item.label.toLowerCase();
+    if (itemLower === lower) {
+      results.push({ ...item, boost: (item.boost || 0) + 50 });
+    } else if (itemLower.startsWith(lower)) {
+      results.push({ ...item, boost: (item.boost || 0) + 20 });
+    } else if (itemLower.includes(lower)) {
+      results.push({ ...item, boost: (item.boost || 0) + 5 });
+    } else if (text.length >= 3 && isFuzzyMatch(lower, itemLower)) {
+      results.push({ ...item, boost: (item.boost || 0) + 1 });
+    }
   }
 
   return {
     from: word.from,
-    options: completions,
+    options: results,
     validFor: /^\w*$/,
   };
+}
+
+function isFuzzyMatch(pattern: string, target: string): boolean {
+  let patternIdx = 0;
+  for (let i = 0; i < target.length && patternIdx < pattern.length; i++) {
+    if (target[i] === pattern[patternIdx]) {
+      patternIdx++;
+    }
+  }
+  return patternIdx === pattern.length;
 }
 
 function toCompletion(item: CompletionItem): Completion {
@@ -552,6 +631,10 @@ export function createEditorState(
 ): EditorState {
   const customKeymaps = [
     {
+      key: 'Enter',
+      run: handleLuauEnter,
+    },
+    {
       key: 'Alt-Shift-f',
       run: formatCodeCommand,
     },
@@ -592,6 +675,7 @@ export function createEditorState(
     search(),
     placeholder('-- Write your Luau code here...'),
     closeBrackets,
+    luauAutoCorrectExtension,
 
     // Custom Semantic Roblox Highlighting, Color Swatches, and Hover Documentation
     robloxTokenHighlighter,
