@@ -5,51 +5,28 @@
  * 
  * Interactive script that:
  * 1. Asks for a GitHub Personal Access Token (PAT)
- * 2. Creates a new GitHub repository named "Luau-runner" (or custom name)
- * 3. Initializes git, commits all project files, and pushes to GitHub
- * 4. Safely removes the token from local git config after pushing
+ * 2. Creates or connects to a GitHub repository named "luau-runner" (or custom name)
+ * 3. Sanitizes repository names (replaces spaces with hyphens)
+ * 4. Configures HTTP/1.1 to prevent HTTP/2 PROTOCOL_ERROR
+ * 5. Commits and pushes all project files to GitHub
+ * 6. Safely cleans the token from git config after pushing
  */
 
 import readline from 'node:readline';
 import { execSync } from 'node:child_process';
 import process from 'node:process';
 
-function prompt(question, isPassword = false) {
+function prompt(question) {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
 
   return new Promise((resolve) => {
-    if (isPassword) {
-      // In terminal, show prompt but avoid echoing sensitive tokens
-      process.stdout.write(question);
-      let input = '';
-      
-      const onData = (char) => {
-        char = char.toString('utf8');
-        switch (char) {
-          case '\n':
-          case '\r':
-          case '\u0004':
-            process.stdin.removeListener('data', onData);
-            break;
-          default:
-            input += char;
-            break;
-        }
-      };
-
-      rl.question('', (ans) => {
-        rl.close();
-        resolve(ans.trim());
-      });
-    } else {
-      rl.question(question, (ans) => {
-        rl.close();
-        resolve(ans.trim());
-      });
-    }
+    rl.question(question, (ans) => {
+      rl.close();
+      resolve(ans.trim());
+    });
   });
 }
 
@@ -113,16 +90,24 @@ async function main() {
   }
 
   // 3. Repository Name & Visibility
-  const repoNameInput = await prompt('\n📁 Repository name [Luau-runner]: ');
-  const repoName = repoNameInput.trim() || 'Luau-runner';
+  const repoNameInput = await prompt('\n📁 Repository name [luau-runner]: ');
+  // Sanitize repo name: replace spaces and invalid characters with hyphens
+  let rawName = repoNameInput.trim() || 'luau-runner';
+  let repoName = rawName.replace(/[\s_]+/g, '-').replace(/[^a-zA-Z0-9.-]/g, '');
+
+  if (repoName !== rawName) {
+    console.log(`ℹ️  Sanitized repository name for GitHub: "${repoName}"`);
+  }
 
   const visibilityInput = await prompt('🔒 Visibility (public / private) [public]: ');
   const isPrivate = visibilityInput.toLowerCase().startsWith('pri');
 
-  console.log(`\n📦 Creating repository "${repoName}" (${isPrivate ? 'Private' : 'Public'})...`);
+  console.log(`\n📦 Checking / Creating repository "${repoName}" (${isPrivate ? 'Private' : 'Public'})...`);
 
-  // 4. Create Repository via GitHub API
-  let repo;
+  // 4. Create Repository via GitHub API or use existing
+  let actualRepoName = repoName;
+  let repoUrl = `https://github.com/${user.login}/${repoName}`;
+
   try {
     const res = await fetch('https://api.github.com/user/repos', {
       method: 'POST',
@@ -141,27 +126,22 @@ async function main() {
     });
 
     if (res.status === 201) {
-      repo = await res.json();
-      console.log(`✅ Repository created: ${repo.html_url}`);
+      const data = await res.json();
+      actualRepoName = data.name;
+      repoUrl = data.html_url;
+      console.log(`✅ Repository created: ${repoUrl}`);
     } else if (res.status === 422) {
-      console.log(`ℹ️  Repository "${repoName}" already exists on your account.`);
-      const useExisting = await prompt('   Push to this existing repository? (y/n) [y]: ');
-      if (useExisting && !useExisting.toLowerCase().startsWith('y')) {
-        console.log('Aborted.');
-        process.exit(0);
-      }
-      repo = {
-        html_url: `https://github.com/${user.login}/${repoName}`,
-        clone_url: `https://github.com/${user.login}/${repoName}.git`,
-      };
+      console.log(`ℹ️  Repository "${repoName}" already exists on your GitHub account.`);
+      actualRepoName = repoName;
+      repoUrl = `https://github.com/${user.login}/${actualRepoName}`;
     } else {
       const err = await res.text();
-      console.error(`❌ Failed to create repository (${res.status}): ${err}`);
-      process.exit(1);
+      console.warn(`⚠️ API response (${res.status}): ${err}`);
+      console.log(`   Proceeding with repository URL: ${repoUrl}`);
     }
   } catch (e) {
-    console.error('❌ Error creating repository:', e.message);
-    process.exit(1);
+    console.warn('⚠️ GitHub API check warning:', e.message);
+    console.log(`   Proceeding with repository URL: ${repoUrl}`);
   }
 
   // 5. Git setup and commit
@@ -175,11 +155,15 @@ async function main() {
     run('git init');
   }
 
+  // Configure HTTP/1.1 to prevent HTTP/2 stream PROTOCOL_ERROR
+  run('git config http.version HTTP/1.1');
+  run('git config http.postBuffer 524288000');
+
   // Ensure git user config
   try {
     run('git config user.name');
   } catch {
-    run(`git config user.name "${user.login}"`);
+    run(`git config user.name "${user.name || user.login}"`);
   }
 
   try {
@@ -207,8 +191,9 @@ async function main() {
 
   // 6. Set authenticated remote and push
   console.log('   Configuring remote origin...');
-  const authenticatedUrl = `https://${token}@github.com/${user.login}/${repoName}.git`;
-  const cleanUrl = `https://github.com/${user.login}/${repoName}.git`;
+  const encodedToken = encodeURIComponent(token);
+  const authenticatedUrl = `https://${encodedToken}@github.com/${user.login}/${actualRepoName}.git`;
+  const cleanUrl = `https://github.com/${user.login}/${actualRepoName}.git`;
 
   try {
     run('git remote get-url origin');
@@ -217,13 +202,13 @@ async function main() {
     run(`git remote add origin "${authenticatedUrl}"`);
   }
 
-  console.log('🚀 Pushing code to GitHub (main branch)...');
+  console.log(`🚀 Pushing code to https://github.com/${user.login}/${actualRepoName} (main branch)...`);
   try {
     run('git push -u origin main');
     console.log('✅ Push successful!');
   } catch (e) {
-    console.error('❌ Push failed:', e.message);
-    console.log('   Attempting forced push (if repository had existing commits)...');
+    console.warn('⚠️ Normal push output:', e.message);
+    console.log('   Attempting force push (if remote repository had existing content)...');
     try {
       run('git push -u origin main --force');
       console.log('✅ Push successful (forced)!');
@@ -244,7 +229,7 @@ async function main() {
 
   console.log('\n=================================================');
   console.log('   🎉 ALL DONE! Your repository is live at:');
-  console.log(`   👉 ${repo.html_url}`);
+  console.log(`   👉 ${repoUrl}`);
   console.log('=================================================\n');
 }
 
