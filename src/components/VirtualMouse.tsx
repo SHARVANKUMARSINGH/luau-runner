@@ -7,27 +7,20 @@ import {
   faChevronDown, 
   faMinus, 
   faArrowsUpDownLeftRight,
-  faCube
+  faLightbulb
 } from '@fortawesome/free-solid-svg-icons';
 import './VirtualMouse.css';
 
 interface VirtualMouseProps {
   isEnabled: boolean;
   isDark: boolean;
-  onOpenEndBlock?: (targetLine: number) => void;
-}
-
-interface Ripple {
-  id: number;
-  x: number;
-  y: number;
-  isRightClick: boolean;
+  onExplainFunction?: (word: string, lineText?: string) => void;
 }
 
 export const VirtualMouse: React.FC<VirtualMouseProps> = ({ 
   isEnabled, 
   isDark,
-  onOpenEndBlock 
+  onExplainFunction 
 }) => {
   // Cursor coordinate state (starts at center of screen)
   const [cursorPos, setCursorPos] = useState(() => ({
@@ -44,13 +37,13 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({
   const [isPillMinimized, setIsPillMinimized] = useState(false);
   const [isDragMode, setIsDragMode] = useState(false);
   const [isClickingVisual, setIsClickingVisual] = useState(false);
-  const [ripples, setRipples] = useState<Ripple[]>([]);
   const [isDraggingCursor, setIsDraggingCursor] = useState(false);
 
-  // 2.6s Hover countdown state
+  // 2.6s Hover countdown state for Function Explanation
   const [hoverProgress, setHoverProgress] = useState(0); // 0 to 1
-  const [hoverLine, setHoverLine] = useState<number | null>(null);
+  const [hoverWord, setHoverWord] = useState<string | null>(null);
   const [isHoveringScript, setIsHoveringScript] = useState(false);
+  const hoverTokenRef = useRef<{ word: string; lineText?: string } | null>(null);
 
   // Refs for tracking drag and hover
   const cursorPosRef = useRef(cursorPos);
@@ -69,15 +62,6 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({
   const lastHoverPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
-
-  // Trigger click ripple effect
-  const addRipple = useCallback((x: number, y: number, isRightClick = false) => {
-    const id = Date.now() + Math.random();
-    setRipples((prev) => [...prev, { id, x, y, isRightClick }]);
-    setTimeout(() => {
-      setRipples((prev) => prev.filter((r) => r.id !== id));
-    }, 400);
-  }, []);
 
   // Dispatch synthetic mouse / pointer event to whatever element is under the cursor
   const dispatchSyntheticEvent = useCallback(
@@ -107,7 +91,6 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({
 
       if (type === 'contextmenu') {
         target.dispatchEvent(new MouseEvent('contextmenu', mouseInit));
-        addRipple(x, y, true);
         return;
       }
 
@@ -134,12 +117,8 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({
           (target as HTMLElement).focus();
         }
       }
-
-      if (type === 'click') {
-        addRipple(x, y, false);
-      }
     },
-    [addRipple]
+    []
   );
 
   // Left Click
@@ -265,7 +244,7 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({
   };
 
   // =========================================================================
-  // 2.6 SECONDS HOVER COUNTDOWN OVER SCRIPT
+  // 2.6 SECONDS HOVER COUNTDOWN OVER SCRIPT FOR FUNCTION EXPLANATION
   // =========================================================================
   const resetHoverCountdown = useCallback(() => {
     if (hoverTimerRef.current) {
@@ -278,10 +257,11 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({
     }
     setHoverProgress(0);
     setIsHoveringScript(false);
-    setHoverLine(null);
+    setHoverWord(null);
+    hoverTokenRef.current = null;
   }, []);
 
-  const detectScriptLineAtCoords = useCallback((x: number, y: number): number | null => {
+  const detectScriptTokenAtCoords = useCallback((x: number, y: number): { word: string; lineText?: string } | null => {
     const el = document.elementFromPoint(x, y);
     if (!el) return null;
 
@@ -290,51 +270,55 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({
     if (!isEditor) return null;
 
     // Query active editor via custom event
-    const detail = { x, y, line: null as number | null };
+    const detail = { 
+      x, 
+      y, 
+      word: null as string | null, 
+      lineText: null as string | null, 
+      lineNumber: null as number | null 
+    };
 
     window.dispatchEvent(
-      new CustomEvent('query-editor-line-at-coords', {
+      new CustomEvent('query-editor-token-at-coords', {
         detail,
       })
     );
 
-    if (detail.line && typeof detail.line === 'number') {
-      return detail.line;
+    if (detail.word && detail.word.trim().length > 0) {
+      return {
+        word: detail.word.trim(),
+        lineText: detail.lineText || undefined,
+      };
     }
 
-    // Fallback: CodeMirror line element detection
-    const cmLine = el.closest('.cm-line');
-    if (cmLine) {
-      // Count preceding sibling lines
-      let count = 1;
-      let sibling = cmLine.previousElementSibling;
-      while (sibling) {
-        if (sibling.classList.contains('cm-line')) count++;
-        sibling = sibling.previousElementSibling;
+    // Fallback: extract word from text under point
+    const sel = document.caretRangeFromPoint ? document.caretRangeFromPoint(x, y) : null;
+    if (sel && sel.startContainer && sel.startContainer.nodeValue) {
+      const text = sel.startContainer.nodeValue;
+      const offset = sel.startOffset;
+      let start = offset;
+      let end = offset;
+      while (start > 0 && /[\w.:]/.test(text[start - 1])) start--;
+      while (end < text.length && /[\w.:]/.test(text[end])) end++;
+      const word = text.slice(start, end).trim();
+      if (word && word.length >= 2) {
+        return { word };
       }
-      return count;
     }
 
-    // Fallback: Monaco view-line
-    const monacoLine = el.closest('.view-line');
-    if (monacoLine) {
-      const top = (monacoLine as HTMLElement).offsetTop;
-      const lineH = parseFloat(getComputedStyle(monacoLine).lineHeight) || 19;
-      return Math.max(1, Math.round(top / lineH) + 1);
-    }
-
-    return 1;
+    return null;
   }, []);
 
   const startHoverCheckAtPosition = useCallback((x: number, y: number) => {
     resetHoverCountdown();
     lastHoverPosRef.current = { x, y };
 
-    const line = detectScriptLineAtCoords(x, y);
-    if (!line) return;
+    const token = detectScriptTokenAtCoords(x, y);
+    if (!token || !token.word) return;
 
     setIsHoveringScript(true);
-    setHoverLine(line);
+    setHoverWord(token.word);
+    hoverTokenRef.current = token;
     hoverStartRef.current = performance.now();
 
     const DURATION = 2600; // Exact 2.6 seconds
@@ -347,23 +331,24 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({
       if (progress < 1) {
         hoverAnimRef.current = requestAnimationFrame(animate);
       } else {
-        // 2.6 SECONDS COMPLETED! Open the End Block Thing!
-        addRipple(x, y, false);
-        if (onOpenEndBlock) {
-          onOpenEndBlock(line);
-        } else {
-          window.dispatchEvent(
-            new CustomEvent('open-end-block-inspector', {
-              detail: { line, x, y },
-            })
-          );
+        const currentToken = hoverTokenRef.current;
+        if (currentToken) {
+          if (onExplainFunction) {
+            onExplainFunction(currentToken.word, currentToken.lineText);
+          } else {
+            window.dispatchEvent(
+              new CustomEvent('open-function-explanation', {
+                detail: { word: currentToken.word, lineText: currentToken.lineText, x, y },
+              })
+            );
+          }
         }
         resetHoverCountdown();
       }
     };
 
     hoverAnimRef.current = requestAnimationFrame(animate);
-  }, [detectScriptLineAtCoords, onOpenEndBlock, resetHoverCountdown, addRipple]);
+  }, [detectScriptTokenAtCoords, onExplainFunction, resetHoverCountdown]);
 
   // When cursor stops moving, start hover check
   useEffect(() => {
@@ -452,8 +437,8 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({
               />
             </svg>
             <span className="vm-gauge-label">
-              <FontAwesomeIcon icon={faCube} style={{ marginRight: '2px' }} />
-              {hoverLine ? `L${hoverLine} • ` : ''}{(2.6 * (1 - hoverProgress)).toFixed(1)}s
+              <FontAwesomeIcon icon={faLightbulb} style={{ marginRight: '3px' }} />
+              {hoverWord ? `${hoverWord} • ` : 'Explain • '}{(2.6 * (1 - hoverProgress)).toFixed(1)}s
             </span>
           </div>
         )}
@@ -480,15 +465,6 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({
           <span className="vm-halo-hint">Drag</span>
         </div>
       </div>
-
-      {/* Click Ripple Feedback */}
-      {ripples.map((r) => (
-        <div
-          key={r.id}
-          className={`virtual-mouse-ripple ${r.isRightClick ? 'right-click' : ''}`}
-          style={{ left: `${r.x}px`, top: `${r.y}px` }}
-        />
-      ))}
 
       {/* ========================================================================= */}
       {/* SLEEK FLOATING CONTROL PILL (NO BULKY TOUCHPAD BOX!)                      */}

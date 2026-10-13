@@ -143,35 +143,6 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
-/* Click Ripple */
-.virtual-mouse-ripple {
-  position: fixed;
-  z-index: 99998;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%) scale(0);
-  pointer-events: none;
-  border: 2px solid #89b4fa;
-  background: rgba(137, 180, 250, 0.3);
-  animation: vmRippleExpand 0.35s ease-out forwards;
-}
-
-.virtual-mouse-ripple.right-click {
-  border-color: #f38ba8;
-  background: rgba(243, 139, 168, 0.3);
-}
-
-@keyframes vmRippleExpand {
-  0% {
-    transform: translate(-50%, -50%) scale(0);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1.6);
-    opacity: 0;
-  }
-}
 
 /* Sleek Floating Action Pill (No bulky touchpad box!) */
 .vm-action-pill {
@@ -225,7 +196,7 @@
 
 .vm-pill-drag-handle:hover {
   opacity: 1;
-  color: #89b4fa;
+  color: #cba6f7;
 }
 
 /* Action Buttons inside Pill */
@@ -262,7 +233,7 @@
 }
 
 .vm-pill-btn.active {
-  background: linear-gradient(135deg, #89b4fa 0%, #b4befe 100%);
+  background: linear-gradient(135deg, #cba6f7 0%, #b4befe 100%);
   color: #11111b;
   font-weight: 700;
 }
@@ -303,12 +274,12 @@
   gap: 6px;
   padding: 6px 12px;
   border-radius: 20px;
-  background: linear-gradient(135deg, #89b4fa 0%, #b4befe 100%);
+  background: linear-gradient(135deg, #cba6f7 0%, #b4befe 100%);
   color: #11111b;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(137, 180, 250, 0.35);
+  box-shadow: 0 4px 14px rgba(203, 166, 247, 0.35);
   transition: transform 0.15s ease;
   user-select: none;
 }

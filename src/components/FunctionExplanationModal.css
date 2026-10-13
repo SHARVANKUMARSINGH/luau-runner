@@ -1,0 +1,337 @@
+/* Function Explanation Modal Styles */
+
+.function-explanation-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background-color: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: feFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes feFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.function-explanation-card {
+  width: 100%;
+  max-width: 540px;
+  max-height: 85vh;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.function-explanation-overlay.dark .function-explanation-card {
+  background-color: #1e1e2e;
+  border: 1px solid #313244;
+  color: #cdd6f4;
+}
+
+.function-explanation-overlay.light .function-explanation-card {
+  background-color: #ffffff;
+  border: 1px solid #dce0e8;
+  color: #4c4f69;
+}
+
+/* Header */
+.fe-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.function-explanation-overlay.light .fe-header {
+  border-bottom: 1px solid #e6e9ef;
+  background-color: #f4f5f8;
+}
+
+.function-explanation-overlay.dark .fe-header {
+  background-color: #181825;
+}
+
+.fe-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fe-icon-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #cba6f7 0%, #b4befe 100%);
+  color: #11111b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  box-shadow: 0 4px 12px rgba(203, 166, 247, 0.35);
+}
+
+.fe-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.fe-subtitle {
+  font-size: 12px;
+  color: #cba6f7;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.fe-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fe-type-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background-color: rgba(203, 166, 247, 0.15);
+  color: #cba6f7;
+  border: 1px solid rgba(203, 166, 247, 0.3);
+  text-transform: uppercase;
+}
+
+.fe-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  color: inherit;
+  opacity: 0.7;
+  transition: opacity 0.15s, background-color 0.15s;
+}
+
+.fe-close-btn:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Signature Box */
+.fe-signature-box {
+  padding: 10px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.function-explanation-overlay.light .fe-signature-box {
+  background: #f7f8fa;
+  border-bottom: 1px solid #e6e9ef;
+}
+
+.fe-signature-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  opacity: 0.75;
+  margin-bottom: 4px;
+}
+
+.fe-signature-code {
+  margin: 0;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: #cba6f7;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.function-explanation-overlay.light .fe-signature-code {
+  color: #8839ef;
+}
+
+/* Body */
+.fe-body {
+  padding: 16px 18px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fe-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fe-section-heading {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.8;
+}
+
+.fe-summary-text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  opacity: 0.95;
+}
+
+/* Parameters List */
+.fe-params-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background-color: rgba(0, 0, 0, 0.15);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.function-explanation-overlay.light .fe-params-list {
+  background-color: #f7f8fa;
+  border-color: #e6e9ef;
+}
+
+.fe-param-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fe-param-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #b4befe;
+}
+
+.function-explanation-overlay.light .fe-param-name {
+  color: #1e66f5;
+}
+
+.fe-param-type {
+  font-size: 11px;
+  font-weight: normal;
+  opacity: 0.75;
+  margin-left: 6px;
+}
+
+.fe-param-desc {
+  font-size: 12px;
+  opacity: 0.85;
+  line-height: 1.4;
+}
+
+.fe-returns-text {
+  margin: 0;
+  font-size: 13px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  opacity: 0.9;
+}
+
+/* Example Usage */
+.fe-example-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fe-copy-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.function-explanation-overlay.light .fe-copy-btn {
+  border-color: #ccd0da;
+}
+
+.fe-copy-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.fe-example-code {
+  margin: 0;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.3);
+  color: #a6e3a1;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.function-explanation-overlay.light .fe-example-code {
+  background-color: #24273a;
+  color: #a6e3a1;
+}
+
+/* Footer */
+.fe-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.function-explanation-overlay.light .fe-footer {
+  border-top: 1px solid #e6e9ef;
+  background-color: #fcfcfd;
+}
+
+.fe-footer-info {
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+.fe-done-btn {
+  background: linear-gradient(135deg, #cba6f7 0%, #b4befe 100%);
+  color: #11111b;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(203, 166, 247, 0.3);
+  transition: all 0.15s ease;
+}
+
+.fe-done-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}

@@ -32,8 +32,8 @@ import DocsModal from './components/DocsModal';
 import ExamplesModal from './components/ExamplesModal';
 import VirtualMouse from './components/VirtualMouse';
 import AiAgentModal from './components/AiAgentModal';
-import EndBlockModal from './components/EndBlockModal';
-import { findBlockAtLine, type LuauBlock } from './utils/block-analyzer';
+import FunctionExplanationModal from './components/FunctionExplanationModal';
+import { explainFunctionAtWord, type FunctionExplanation } from './utils/function-explainer';
 import { useDialog } from './context/DialogContext';
 
 import './App.css';
@@ -84,14 +84,12 @@ export const App: React.FC = () => {
   const [isDocsModalOpen, setIsDocsModalOpen] = useState(false);
   const [isExamplesModalOpen, setIsExamplesModalOpen] = useState(false);
   const [isAiAgentModalOpen, setIsAiAgentModalOpen] = useState(false);
-  const [endBlockModal, setEndBlockModal] = useState<{
+  const [explanationModal, setExplanationModal] = useState<{
     isOpen: boolean;
-    block: LuauBlock | null;
-    targetLine: number;
+    explanation: FunctionExplanation | null;
   }>({
     isOpen: false,
-    block: null,
-    targetLine: 1,
+    explanation: null,
   });
 
   const { showConfirm } = useDialog();
@@ -145,63 +143,32 @@ export const App: React.FC = () => {
     );
   }, [activeScriptId]);
 
-  // Open End Block Inspector at target line
-  const handleOpenEndBlock = useCallback(
-    (targetLine: number) => {
-      if (!activeScript) return;
-      const block = findBlockAtLine(activeScript.content, targetLine);
-      if (block) {
-        setEndBlockModal({
+  // Open Function Explanation modal
+  const handleExplainFunction = useCallback(
+    (word: string, lineText?: string) => {
+      if (!word) return;
+      const explanation = explainFunctionAtWord(word, lineText, activeScript?.content);
+      if (explanation) {
+        setExplanationModal({
           isOpen: true,
-          block,
-          targetLine,
+          explanation,
         });
-        // Automatically unfold block in editor if it was collapsed
-        window.dispatchEvent(
-          new CustomEvent('editor-unfold-block', { detail: { lineNumber: block.startLine } })
-        );
       }
     },
     [activeScript]
   );
 
-  const handleJumpToLine = useCallback((lineNumber: number) => {
-    window.dispatchEvent(
-      new CustomEvent('editor-jump-to-line', { detail: { lineNumber } })
-    );
-  }, []);
-
-  const handleUnfoldBlock = useCallback((lineNumber: number) => {
-    window.dispatchEvent(
-      new CustomEvent('editor-unfold-block', { detail: { lineNumber } })
-    );
-  }, []);
-
-  const handleInsertEnd = useCallback(
-    (startLine: number, closerText: string) => {
-      if (!activeScript) return;
-      const lines = activeScript.content.split('\n');
-      const openLine = lines[startLine - 1] || '';
-      const matchIndent = openLine.match(/^(\s*)/);
-      const indent = matchIndent ? matchIndent[1] : '';
-      lines.splice(startLine, 0, `${indent}    -- block body\n${indent}${closerText}`);
-      const updated = lines.join('\n');
-      handleContentChange(updated);
-    },
-    [activeScript, handleContentChange]
-  );
-
-  // Global listener for opening End Block Inspector
+  // Global listener for opening Function Explanation
   useEffect(() => {
     const handler = (e: Event) => {
-      const customEvent = e as CustomEvent<{ line: number }>;
-      if (customEvent.detail?.line) {
-        handleOpenEndBlock(customEvent.detail.line);
+      const customEvent = e as CustomEvent<{ word: string; lineText?: string }>;
+      if (customEvent.detail?.word) {
+        handleExplainFunction(customEvent.detail.word, customEvent.detail.lineText);
       }
     };
-    window.addEventListener('open-end-block-inspector', handler);
-    return () => window.removeEventListener('open-end-block-inspector', handler);
-  }, [handleOpenEndBlock]);
+    window.addEventListener('open-function-explanation', handler);
+    return () => window.removeEventListener('open-function-explanation', handler);
+  }, [handleExplainFunction]);
 
   // Run script
   const handleRun = useCallback(async () => {
@@ -576,18 +543,14 @@ export const App: React.FC = () => {
       <VirtualMouse
         isEnabled={settings.virtualMouse ?? false}
         isDark={isDark}
-        onOpenEndBlock={handleOpenEndBlock}
+        onExplainFunction={handleExplainFunction}
       />
 
-      {/* End Block Inspector (opens after 2.6s hover or action) */}
-      <EndBlockModal
-        isOpen={endBlockModal.isOpen}
-        block={endBlockModal.block}
-        targetLine={endBlockModal.targetLine}
-        onClose={() => setEndBlockModal((prev) => ({ ...prev, isOpen: false }))}
-        onJumpToLine={handleJumpToLine}
-        onUnfoldBlock={handleUnfoldBlock}
-        onInsertEnd={handleInsertEnd}
+      {/* Function Explanation Modal (opens on 2.6s hover) */}
+      <FunctionExplanationModal
+        isOpen={explanationModal.isOpen}
+        explanation={explanationModal.explanation}
+        onClose={() => setExplanationModal((prev) => ({ ...prev, isOpen: false }))}
         isDark={isDark}
       />
     </div>

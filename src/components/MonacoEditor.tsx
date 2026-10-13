@@ -694,19 +694,26 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
       setDocStats({ lines: model.getLineCount(), chars: model.getValueLength() });
     }
 
-    // 2.6s Desktop Hover listener
+    // 2.6s Desktop Hover listener for Function Explanation
     let monacoHoverTimer: any = null;
-    let lastMonacoLine: number | null = null;
+    let lastMonacoWord: string | null = null;
     editor.onMouseMove((e: any) => {
       if (monacoHoverTimer) clearTimeout(monacoHoverTimer);
       if (e.target?.position) {
+        const model = editor.getModel();
+        if (!model) return;
         const ln = e.target.position.lineNumber;
-        lastMonacoLine = ln;
+        const lineContent = model.getLineContent(ln);
+        const wordObj = model.getWordAtPosition(e.target.position);
+        const word = wordObj?.word;
+        if (!word) return;
+
+        lastMonacoWord = word;
         monacoHoverTimer = setTimeout(() => {
-          if (lastMonacoLine === ln) {
+          if (lastMonacoWord === word) {
             window.dispatchEvent(
-              new CustomEvent('open-end-block-inspector', {
-                detail: { line: ln, x: e.event.posx, y: e.event.posy },
+              new CustomEvent('open-function-explanation', {
+                detail: { word, lineText: lineContent, x: e.event.posx, y: e.event.posy },
               })
             );
           }
@@ -719,45 +726,37 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
     });
   };
 
-  // Global listeners for line queries, jumping, and unfolding
+  // Global listener for token queries at coords
   useEffect(() => {
-    const handleQueryLine = (e: Event) => {
-      const customEvent = e as CustomEvent<{ x: number; y: number; line: number | null }>;
+    const handleQueryToken = (e: Event) => {
+      const customEvent = e as CustomEvent<{ 
+        x: number; 
+        y: number; 
+        word: string | null; 
+        lineText: string | null; 
+        lineNumber: number | null; 
+      }>;
       if (editorRef.current && customEvent.detail) {
         const { x, y } = customEvent.detail;
         const target = editorRef.current.getTargetAtClientPoint(x, y);
         if (target?.position) {
-          customEvent.detail.line = target.position.lineNumber;
+          const model = editorRef.current.getModel();
+          if (model) {
+            const ln = target.position.lineNumber;
+            const lineContent = model.getLineContent(ln);
+            const wordObj = model.getWordAtPosition(target.position);
+            customEvent.detail.lineNumber = ln;
+            customEvent.detail.lineText = lineContent;
+            customEvent.detail.word = wordObj?.word || null;
+          }
         }
       }
     };
 
-    const handleJumpToLine = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lineNumber: number }>;
-      if (editorRef.current && customEvent.detail?.lineNumber) {
-        const ln = customEvent.detail.lineNumber;
-        editorRef.current.revealLineInCenter(ln);
-        editorRef.current.setPosition({ lineNumber: ln, column: 1 });
-        editorRef.current.focus();
-      }
-    };
-
-    const handleUnfoldBlock = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lineNumber: number }>;
-      if (editorRef.current && customEvent.detail?.lineNumber) {
-        editorRef.current.getAction('editor.unfold')?.run();
-        editorRef.current.revealLineInCenter(customEvent.detail.lineNumber);
-      }
-    };
-
-    window.addEventListener('query-editor-line-at-coords', handleQueryLine);
-    window.addEventListener('editor-jump-to-line', handleJumpToLine);
-    window.addEventListener('editor-unfold-block', handleUnfoldBlock);
+    window.addEventListener('query-editor-token-at-coords', handleQueryToken);
 
     return () => {
-      window.removeEventListener('query-editor-line-at-coords', handleQueryLine);
-      window.removeEventListener('editor-jump-to-line', handleJumpToLine);
-      window.removeEventListener('editor-unfold-block', handleUnfoldBlock);
+      window.removeEventListener('query-editor-token-at-coords', handleQueryToken);
     };
   }, []);
 

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { EditorView } from '@codemirror/view';
-import { syntaxHighlighting, unfoldAll } from '@codemirror/language';
+import { syntaxHighlighting } from '@codemirror/language';
 import { undo, redo, toggleComment } from '@codemirror/commands';
 import { openSearchPanel } from '@codemirror/search';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -267,55 +267,42 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }, [fontSize]);
 
-  // Line coordinate query, jump-to-line, unfold-block, and 2.6s desktop hover
+  // Token coordinate query and 2.6s desktop hover for function explanation
   useEffect(() => {
-    const handleQueryLine = (e: Event) => {
-      const customEvent = e as CustomEvent<{ x: number; y: number; line: number | null }>;
+    const handleQueryToken = (e: Event) => {
+      const customEvent = e as CustomEvent<{ 
+        x: number; 
+        y: number; 
+        word: string | null; 
+        lineText: string | null;
+        lineNumber: number | null;
+      }>;
       if (viewRef.current && customEvent.detail) {
         const { x, y } = customEvent.detail;
         const pos = viewRef.current.posAtCoords({ x, y });
         if (pos !== null) {
-          customEvent.detail.line = viewRef.current.state.doc.lineAt(pos).number;
+          const line = viewRef.current.state.doc.lineAt(pos);
+          customEvent.detail.lineNumber = line.number;
+          customEvent.detail.lineText = line.text;
+
+          // Extract word or compound token under cursor (supporting dots and colons)
+          const col = pos - line.from;
+          const text = line.text;
+          let start = col;
+          let end = col;
+          while (start > 0 && /[\w.:]/.test(text[start - 1])) start--;
+          while (end < text.length && /[\w.:]/.test(text[end])) end++;
+          const word = text.slice(start, end).trim();
+          customEvent.detail.word = word || null;
         }
       }
     };
 
-    const handleJumpToLine = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lineNumber: number }>;
-      if (viewRef.current && customEvent.detail?.lineNumber) {
-        const ln = customEvent.detail.lineNumber;
-        const total = viewRef.current.state.doc.lines;
-        const targetLn = Math.min(Math.max(1, ln), total);
-        const line = viewRef.current.state.doc.line(targetLn);
-        viewRef.current.dispatch({
-          selection: { anchor: line.from },
-          scrollIntoView: true,
-        });
-        viewRef.current.focus();
-      }
-    };
-
-    const handleUnfoldBlock = (e: Event) => {
-      const customEvent = e as CustomEvent<{ lineNumber: number }>;
-      if (viewRef.current && customEvent.detail?.lineNumber) {
-        unfoldAll(viewRef.current);
-        const total = viewRef.current.state.doc.lines;
-        const targetLn = Math.min(Math.max(1, customEvent.detail.lineNumber), total);
-        const line = viewRef.current.state.doc.line(targetLn);
-        viewRef.current.dispatch({
-          selection: { anchor: line.from },
-          scrollIntoView: true,
-        });
-      }
-    };
-
-    window.addEventListener('query-editor-line-at-coords', handleQueryLine);
-    window.addEventListener('editor-jump-to-line', handleJumpToLine);
-    window.addEventListener('editor-unfold-block', handleUnfoldBlock);
+    window.addEventListener('query-editor-token-at-coords', handleQueryToken);
 
     // Desktop Mouse 2.6s Hover support
     let desktopHoverTimer: ReturnType<typeof setTimeout> | null = null;
-    let lastHoverLine: number | null = null;
+    let lastHoverWord: string | null = null;
     const dom = editorRef.current;
 
     const onMouseMove = (e: MouseEvent) => {
@@ -323,14 +310,23 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       if (!viewRef.current) return;
       const pos = viewRef.current.posAtCoords({ x: e.clientX, y: e.clientY });
       if (pos === null) return;
-      const lineNum = viewRef.current.state.doc.lineAt(pos).number;
-      lastHoverLine = lineNum;
+      const line = viewRef.current.state.doc.lineAt(pos);
+      const col = pos - line.from;
+      const text = line.text;
 
+      let start = col;
+      let end = col;
+      while (start > 0 && /[\w.:]/.test(text[start - 1])) start--;
+      while (end < text.length && /[\w.:]/.test(text[end])) end++;
+      const word = text.slice(start, end).trim();
+      if (!word) return;
+
+      lastHoverWord = word;
       desktopHoverTimer = setTimeout(() => {
-        if (lastHoverLine === lineNum) {
+        if (lastHoverWord === word) {
           window.dispatchEvent(
-            new CustomEvent('open-end-block-inspector', {
-              detail: { line: lineNum, x: e.clientX, y: e.clientY },
+            new CustomEvent('open-function-explanation', {
+              detail: { word, lineText: line.text, x: e.clientX, y: e.clientY },
             })
           );
         }
@@ -347,9 +343,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     }
 
     return () => {
-      window.removeEventListener('query-editor-line-at-coords', handleQueryLine);
-      window.removeEventListener('editor-jump-to-line', handleJumpToLine);
-      window.removeEventListener('editor-unfold-block', handleUnfoldBlock);
+      window.removeEventListener('query-editor-token-at-coords', handleQueryToken);
       if (desktopHoverTimer) clearTimeout(desktopHoverTimer);
       if (dom) {
         dom.removeEventListener('mousemove', onMouseMove);

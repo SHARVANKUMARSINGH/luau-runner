@@ -116,13 +116,19 @@
 .toolbar-btn.active {
   background: #313244;
   border-color: #45475a;
-  color: #89b4fa;
+  color: #cba6f7;
 }
 
 .app-toolbar.light .toolbar-btn.active {
   background: #ccd0da;
   border-color: #bcc0cc;
-  color: #1e66f5;
+  color: #8839ef;
+}
+
+.toolbar-btn:active {
+  transform: translateY(1px);
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
 }
 
 /* Run & Stop Buttons */
