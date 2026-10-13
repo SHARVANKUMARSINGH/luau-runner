@@ -193,9 +193,6 @@ local function createInstance(className, parent)
             Destroying = Signal.new("Destroying"),
             OnServerEvent = Signal.new("OnServerEvent"),
             OnClientEvent = Signal.new("OnClientEvent"),
-            Touched = Signal.new("Touched"),
-            TouchEnded = Signal.new("TouchEnded"),
-            Died = Signal.new("Died"),
             Event = Signal.new("Event"),
         }
     }
@@ -271,24 +268,6 @@ local function createInstance(className, parent)
             end
             props[key] = value
             self.Changed:Fire(key)
-            if props.ClassName == "Part" or props.ClassName == "SpawnLocation" or props.ClassName == "MeshPart" then
-                pcall(function()
-                    local p = props.Position or Vector3.new(0, 0, 0)
-                    local s = props.Size or Vector3.new(4, 1, 2)
-                    local c = "#a4b0be"
-                    if props.Color and typeof(props.Color) == "Color3" then
-                        c = string.format("#%02x%02x%02x", math.floor(props.Color.R * 255), math.floor(props.Color.G * 255), math.floor(props.Color.B * 255))
-                    elseif props.BrickColor and typeof(props.BrickColor) == "BrickColor" and props.BrickColor.Color then
-                        local bc = props.BrickColor.Color
-                        c = string.format("#%02x%02x%02x", math.floor(bc.R * 255), math.floor(bc.G * 255), math.floor(bc.B * 255))
-                    end
-                    __bridge_sync_3d_part(props.Name, p.X, p.Y, p.Z, s.X, s.Y, s.Z, c, props.Anchored ~= false, props.Transparency or 0)
-                end)
-            elseif props.ClassName == "Humanoid" then
-                pcall(function()
-                    __bridge_sync_character(props.WalkSpeed or 16, props.Health or 100, props.MaxHealth or 100)
-                end)
-            end
         end,
         __tostring = function(self)
             return rawget(self, "_props").Name
@@ -394,10 +373,6 @@ function InstanceMethods:Clone()
 end
 
 function InstanceMethods:Destroy()
-    local p = rawget(self, "_props")
-    if p and (p.ClassName == "Part" or p.ClassName == "SpawnLocation" or p.ClassName == "MeshPart") then
-        pcall(function() __bridge_remove_3d_part(p.Name) end)
-    end
     self.Destroying:Fire()
     for _, child in ipairs(self:GetChildren()) do
         child:Destroy()
@@ -490,11 +465,11 @@ Terrain.Name = "Terrain"
 local Camera = createInstance("Camera", workspace)
 Camera.Name = "Camera"
 
--- Simulated Player & Character Setup
+-- Simulated Player Setup
 local localPlayer = createInstance("Player", Players)
-localPlayer.Name = "Player1"
+localPlayer.Name = "SimPlayer"
 localPlayer.UserId = 12345678
-localPlayer.DisplayName = "Player1"
+localPlayer.DisplayName = "SimulatedPlayer"
 Players.LocalPlayer = localPlayer
 
 local backpack = createInstance("Folder", localPlayer)
@@ -502,65 +477,6 @@ backpack.Name = "Backpack"
 
 local playerGui = createInstance("Folder", localPlayer)
 playerGui.Name = "PlayerGui"
-
--- Setup 3D Character Model in Workspace
-local character = createInstance("Model", workspace)
-character.Name = "Player1"
-
-local humanoid = createInstance("Humanoid", character)
-humanoid.Name = "Humanoid"
-humanoid.Health = 100
-humanoid.MaxHealth = 100
-humanoid.WalkSpeed = 16
-humanoid.JumpPower = 50
-
-function humanoid:TakeDamage(amount)
-    self.Health = math.max(0, self.Health - (amount or 0))
-    if self.Health <= 0 then
-        self.Died:Fire()
-    end
-end
-
-function humanoid:MoveTo(target)
-    character.HumanoidRootPart.Position = target
-end
-
-local hrp = createInstance("Part", character)
-hrp.Name = "HumanoidRootPart"
-hrp.Size = Vector3.new(2, 2, 1)
-hrp.Position = Vector3.new(0, 3, 0)
-hrp.Anchored = false
-hrp.CanCollide = false
-
-local head = createInstance("Part", character)
-head.Name = "Head"
-head.Size = Vector3.new(1.25, 1.25, 1.25)
-head.Position = Vector3.new(0, 4.5, 0)
-
-local torso = createInstance("Part", character)
-torso.Name = "Torso"
-torso.Size = Vector3.new(2, 2, 1)
-torso.Position = Vector3.new(0, 3, 0)
-
-character.PrimaryPart = hrp
-localPlayer.Character = character
-
-function character:MoveTo(targetPos)
-    self.HumanoidRootPart.Position = targetPos
-end
-
-localPlayer.CharacterAdded = Signal.new("CharacterAdded")
-Players.PlayerAdded = Signal.new("PlayerAdded")
-Players.PlayerRemoving = Signal.new("PlayerRemoving")
-
-function Players:GetPlayers()
-    return { localPlayer }
-end
-
-function localPlayer:LoadCharacter()
-    self.CharacterAdded:Fire(self.Character)
-    return self.Character
-end
 
 -- Context Boundary Enforcement
 local _services = {

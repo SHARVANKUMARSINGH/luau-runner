@@ -358,53 +358,6 @@ end
 print("💡 Tip: Click the Globe icon in the toolbar to inspect this hierarchy in the Explorer!")
 `,
   },
-  {
-    id: 'tpl_3d_roblox_game',
-    name: '3D Roblox Game & Character',
-    type: 'LocalScript',
-    description: '3D Roblox Studio simulation with player character, custom walk speed, and interactive 3D platforms',
-    content: `-- 3D Roblox Game & Character Simulation
-print("🎮 3D Roblox Simulation active!")
-
-local player = game:GetService("Players").LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-
-print("Character loaded:", character.Name)
-print("Humanoid Health:", humanoid.Health, "/", humanoid.MaxHealth)
-
--- 1. Customize Character Physics
-humanoid.WalkSpeed = 24
-print("⚡ Player WalkSpeed boosted to 24 studs/second!")
-
--- 2. Build 3D Obstacle Course (Obby Platforms) in Workspace
-local platformColors = {
-    Color3.fromRGB(255, 71, 87),
-    Color3.fromRGB(46, 213, 115),
-    Color3.fromRGB(30, 144, 255),
-    Color3.fromRGB(255, 165, 2),
-    Color3.fromRGB(165, 94, 234),
-    Color3.fromRGB(255, 107, 129),
-}
-
-for i = 1, 6 do
-    local platform = Instance.new("Part")
-    platform.Name = "ObbyStep_" .. i
-    platform.Size = Vector3.new(5, 1, 5)
-    
-    local angle = i * 0.8
-    local radius = 12 + i * 2
-    platform.Position = Vector3.new(math.sin(angle) * radius, i * 2.2, -math.cos(angle) * radius)
-    platform.Color = platformColors[(i % #platformColors) + 1]
-    platform.Anchored = true
-    platform.Parent = workspace
-    
-    print(string.format("Spawned 3D Platform '%s' at Y = %.1f", platform.Name, platform.Position.Y))
-end
-
-print("✨ Click 'Play' or press F5 to control your 3D avatar with WASD or mobile joystick!")
-`,
-  },
 ];
 
 export function createDefaultScripts(): ScriptFile[] {

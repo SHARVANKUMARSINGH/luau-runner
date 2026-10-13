@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { 
   ScriptFile, 
   ScriptType, 
@@ -32,10 +32,6 @@ import DocsModal from './components/DocsModal';
 import ExamplesModal from './components/ExamplesModal';
 import VirtualMouse from './components/VirtualMouse';
 import AiAgentModal from './components/AiAgentModal';
-import PlayViewport from './components/PlayViewport';
-import { RobloxSimulationWorld } from './engine/roblox-3d/simulation';
-import { RobloxWebGLEngine } from './engine/roblox-webgl/webgl-engine';
-import type { PlayMode } from './engine/roblox-3d/simulation';
 import { useDialog } from './context/DialogContext';
 
 import './App.css';
@@ -66,12 +62,8 @@ export const App: React.FC = () => {
   // Console Messages
   const [messages, setMessages] = useState<ConsoleMessage[]>([]);
 
-  // Execution & Simulation State
+  // Execution State
   const [isRunning, setIsRunning] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playMode, setPlayMode] = useState<PlayMode>('solo');
-  const world = useMemo(() => new RobloxSimulationWorld(), []);
-  const webglEngineRef = useRef<RobloxWebGLEngine | null>(null);
 
   // DataModel Hierarchy Tree for Explorer
   const [tree, setTree] = useState<ExplorerNode | null>(() => {
@@ -142,113 +134,9 @@ export const App: React.FC = () => {
     );
   }, [activeScriptId]);
 
-  // Play 3D simulation with Roblox Avatar & Server/Client runtime
-  const handlePlay = useCallback(
-    async (selectedMode: PlayMode = 'solo') => {
-      if (!activeScript || isRunning || isPlaying) return;
-
-      world.mode = selectedMode;
-      world.respawnCharacter();
-      setIsPlaying(true);
-      setIsRunning(true);
-      setPlayMode(selectedMode);
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `sys_play_${Date.now()}`,
-          type: 'system',
-          text: `🎮 Launching 3D Roblox Studio ${selectedMode === 'solo' ? 'Play Solo' : 'Server Run'} with authentic client & server simulation...`,
-          timestamp: Date.now(),
-        },
-      ]);
-
-      await executeLuauScript(
-        activeScript,
-        scripts,
-        {
-          onOutput: (msg) => {
-            setMessages((prev) => [...prev, msg]);
-          },
-          onComplete: () => {
-            // Simulation keeps running in 3D viewport until user clicks Stop
-          },
-          onError: (errMsg) => {
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: `err_${Date.now()}`,
-                type: 'error',
-                text: errMsg,
-                timestamp: Date.now(),
-                source: activeScript.name,
-              },
-            ]);
-          },
-          onTreeSync: (newTree) => {
-            setTree(newTree);
-          },
-          on3DSync: (partData) => {
-            if (webglEngineRef.current) {
-              webglEngineRef.current.syncPartFromLuau({
-                id: partData.name,
-                name: partData.name,
-                position: partData.position,
-                size: partData.size,
-                color: partData.color,
-                anchored: partData.anchored ?? true,
-                transparency: partData.transparency ?? 0,
-              });
-            }
-            world.syncPartFromLuau(
-              partData.name,
-              partData.position,
-              partData.size,
-              partData.color,
-              partData.anchored,
-              partData.transparency
-            );
-          },
-          on3DRemovePart: (name) => {
-            if (webglEngineRef.current) {
-              webglEngineRef.current.removePart(name);
-            }
-            world.removePart(name);
-          },
-          onCharacterSync: (charData) => {
-            if (webglEngineRef.current) {
-              if (charData.walkSpeed !== undefined) {
-                webglEngineRef.current.player.walkSpeed = charData.walkSpeed;
-              }
-              if (charData.health !== undefined) {
-                webglEngineRef.current.player.health = charData.health;
-                webglEngineRef.current.updateNameTag();
-              }
-              if (charData.maxHealth !== undefined) {
-                webglEngineRef.current.player.maxHealth = charData.maxHealth;
-                webglEngineRef.current.updateNameTag();
-              }
-            }
-            if (charData.walkSpeed !== undefined) {
-              world.character.walkSpeed = charData.walkSpeed;
-            }
-            if (charData.health !== undefined) {
-              world.character.health = charData.health;
-            }
-            if (charData.maxHealth !== undefined) {
-              world.character.maxHealth = charData.maxHealth;
-            }
-          },
-        },
-        settings.executionTimeout
-      );
-    },
-    [activeScript, scripts, isRunning, isPlaying, world, settings.executionTimeout]
-  );
-
-  // Run script (server-only in background)
+  // Run script
   const handleRun = useCallback(async () => {
-    if (!activeScript || isRunning || isPlaying) return;
+    if (!activeScript || isRunning) return;
 
     setIsRunning(true);
     setIsConsoleOpen(true);
@@ -279,60 +167,15 @@ export const App: React.FC = () => {
         onTreeSync: (newTree) => {
           setTree(newTree);
         },
-        on3DSync: (partData) => {
-          if (webglEngineRef.current) {
-            webglEngineRef.current.syncPartFromLuau({
-              id: partData.name,
-              name: partData.name,
-              position: partData.position,
-              size: partData.size,
-              color: partData.color,
-              anchored: partData.anchored ?? true,
-              transparency: partData.transparency ?? 0,
-            });
-          }
-          world.syncPartFromLuau(
-            partData.name,
-            partData.position,
-            partData.size,
-            partData.color,
-            partData.anchored,
-            partData.transparency
-          );
-        },
-        on3DRemovePart: (name) => {
-          if (webglEngineRef.current) {
-            webglEngineRef.current.removePart(name);
-          }
-          world.removePart(name);
-        },
-        onCharacterSync: (charData) => {
-          if (webglEngineRef.current) {
-            if (charData.walkSpeed !== undefined) {
-              webglEngineRef.current.player.walkSpeed = charData.walkSpeed;
-            }
-            if (charData.health !== undefined) {
-              webglEngineRef.current.player.health = charData.health;
-              webglEngineRef.current.updateNameTag();
-            }
-          }
-          if (charData.walkSpeed !== undefined) {
-            world.character.walkSpeed = charData.walkSpeed;
-          }
-          if (charData.health !== undefined) {
-            world.character.health = charData.health;
-          }
-        },
       },
       settings.executionTimeout
     );
-  }, [activeScript, scripts, isRunning, isPlaying, world, settings.executionTimeout]);
+  }, [activeScript, scripts, isRunning, settings.executionTimeout]);
 
-  // Stop script & 3D Play session
+  // Stop script
   const handleStop = useCallback(() => {
     stopExecution();
     setIsRunning(false);
-    setIsPlaying(false);
   }, []);
 
   // Clear console
@@ -493,19 +336,9 @@ export const App: React.FC = () => {
   // Global Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'F5') {
-        e.preventDefault();
-        if (e.shiftKey) {
-          handleStop();
-        } else {
-          handlePlay('solo');
-        }
-      } else if (e.key === 'F8') {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         handleRun();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        handlePlay('solo');
       } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         saveScripts(scripts);
@@ -523,15 +356,13 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handlePlay, handleRun, handleStop, scripts]);
+  }, [handleRun, scripts]);
 
   return (
     <div className={`app-root ${isDark ? 'dark' : 'light'}`}>
       {/* Top Runner Toolbar with Real Font Awesome Icons */}
       <Toolbar
         isRunning={isRunning}
-        isPlaying={isPlaying}
-        onPlay={() => handlePlay('solo')}
         onRun={handleRun}
         onStop={handleStop}
         isExplorerOpen={isExplorerOpen}
@@ -556,81 +387,49 @@ export const App: React.FC = () => {
 
       {/* Main Layout Area */}
       <div className="app-main-area">
-        {/* Editor Area or 3D Play Viewport */}
+        {/* Editor Area: occupies all available space when Explorer is closed */}
         <div className="editor-console-column">
-          {isPlaying ? (
-            /* 3D Roblox Studio Play Simulation Viewport */
-            <PlayViewport
-              world={world}
-              messages={messages}
-              mode={playMode}
-              onStop={handleStop}
-              onToggleMode={(newMode) => {
-                setPlayMode(newMode);
-                world.mode = newMode;
-                if (webglEngineRef.current) {
-                  webglEngineRef.current.mode = newMode;
-                }
-              }}
-              engineRefProp={webglEngineRef}
-              onSendMessage={(text) => {
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    id: `chat_${Date.now()}`,
-                    type: 'output',
-                    text: `[Chat] Player1: ${text}`,
-                    timestamp: Date.now(),
-                    source: 'Chat',
-                  },
-                ]);
-              }}
-            />
-          ) : (
-            <>
-              {/* Script Type Tab Bar (Script, Server Script, Local Script, Module Script) */}
-              <ScriptTabBar
-                scripts={scripts}
-                activeScriptId={activeScriptId}
-                onSelectScript={setActiveScriptId}
-                onNewScript={() => setIsNewScriptModalOpen(true)}
-                onRenameScript={(script) => setRenamingScript(script)}
-                onDeleteScript={handleDeleteScript}
-                isDark={isDark}
-              />
+          {/* Script Type Tab Bar (Script, Server Script, Local Script, Module Script) */}
+          <ScriptTabBar
+            scripts={scripts}
+            activeScriptId={activeScriptId}
+            onSelectScript={setActiveScriptId}
+            onNewScript={() => setIsNewScriptModalOpen(true)}
+            onRenameScript={(script) => setRenamingScript(script)}
+            onDeleteScript={handleDeleteScript}
+            isDark={isDark}
+          />
 
-              {/* Code Editor: CodeMirror 6 (Default) or Monaco Editor (Selectable in Appearance tab) */}
-              {activeScript && (
-                settings.editorEngine === 'monaco' ? (
-                  <MonacoEditor
-                    key={`monaco_${activeScript.id}`}
-                    value={activeScript.content}
-                    onChange={handleContentChange}
-                    onRun={handleRun}
-                    isDark={isDark}
-                    fontSize={settings.fontSize}
-                    isRunning={isRunning}
-                    scriptType={activeScript.type}
-                    scriptName={activeScript.name}
-                  />
-                ) : (
-                  <CodeEditor
-                    key={`cm_${activeScript.id}`}
-                    value={activeScript.content}
-                    onChange={handleContentChange}
-                    onRun={handleRun}
-                    isDark={isDark}
-                    fontSize={settings.fontSize}
-                    isRunning={isRunning}
-                    scriptType={activeScript.type}
-                    scriptName={activeScript.name}
-                  />
-                )
-              )}
-            </>
+          {/* Code Editor: CodeMirror 6 (Default) or Monaco Editor (Selectable in Appearance tab) */}
+          {activeScript && (
+            settings.editorEngine === 'monaco' ? (
+              <MonacoEditor
+                key={`monaco_${activeScript.id}`}
+                value={activeScript.content}
+                onChange={handleContentChange}
+                onRun={handleRun}
+                isDark={isDark}
+                fontSize={settings.fontSize}
+                isRunning={isRunning}
+                scriptType={activeScript.type}
+                scriptName={activeScript.name}
+              />
+            ) : (
+              <CodeEditor
+                key={`cm_${activeScript.id}`}
+                value={activeScript.content}
+                onChange={handleContentChange}
+                onRun={handleRun}
+                isDark={isDark}
+                fontSize={settings.fontSize}
+                isRunning={isRunning}
+                scriptType={activeScript.type}
+                scriptName={activeScript.name}
+              />
+            )
           )}
 
-          {/* Dedicated Roblox Studio Docked Output Window - Always available across Play and Edit modes */}
+          {/* Collapsible Output Console */}
           <Console
             messages={messages}
             onClear={handleClearConsole}

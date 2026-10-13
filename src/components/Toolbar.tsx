@@ -14,16 +14,13 @@ import {
   faDownload,
   faCode,
   faTrash,
-  faRobot,
-  faGamepad
+  faRobot
 } from '@fortawesome/free-solid-svg-icons';
 import type { ThemeMode } from '../types';
 import './Toolbar.css';
 
 interface ToolbarProps {
   isRunning: boolean;
-  isPlaying?: boolean;
-  onPlay: () => void;
   onRun: () => void;
   onStop: () => void;
   isExplorerOpen: boolean;
@@ -45,8 +42,6 @@ const BRAND_ICON_URL = "/app-icon.png";
 
 const Toolbar: React.FC<ToolbarProps> = ({
   isRunning,
-  isPlaying = false,
-  onPlay,
   onRun,
   onStop,
   isExplorerOpen,
@@ -65,7 +60,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
 }) => {
   const isDark = theme === 'dark';
   const [imgError, setImgError] = useState(false);
-  const isExecutionActive = isRunning || isPlaying;
 
   return (
     <header className={`app-toolbar ${isDark ? 'dark' : 'light'}`}>
@@ -91,32 +85,22 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
       <div className="toolbar-divider" />
 
-      {/* Primary Actions: Play, Run & Stop */}
+      {/* Primary Actions: Run & Stop */}
       <div className="toolbar-section primary-actions">
-        {!isExecutionActive ? (
-          <>
-            <button 
-              className="toolbar-btn btn-play" 
-              onClick={onPlay} 
-              title="Play Solo: Launch 3D Roblox Viewport with character avatar (F5)"
-            >
-              <FontAwesomeIcon icon={faGamepad} />
-              <span className="btn-text">Play</span>
-            </button>
-            <button 
-              className="toolbar-btn btn-run" 
-              onClick={onRun} 
-              title="Run: Execute server-side script in console (F8 / Ctrl+Enter)"
-            >
-              <FontAwesomeIcon icon={faPlay} />
-              <span className="btn-text">Run</span>
-            </button>
-          </>
+        {!isRunning ? (
+          <button 
+            className="toolbar-btn btn-run" 
+            onClick={onRun} 
+            title="Run active script (Ctrl + Enter)"
+          >
+            <FontAwesomeIcon icon={faPlay} />
+            <span className="btn-text">Run</span>
+          </button>
         ) : (
           <button 
             className="toolbar-btn btn-stop" 
             onClick={onStop} 
-            title="Stop execution and return to code editor (Shift+F5)"
+            title="Stop execution"
           >
             <FontAwesomeIcon icon={faStop} />
             <span className="btn-text">Stop</span>

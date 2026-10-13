@@ -6,21 +6,6 @@ export interface EngineCallbacks {
   onComplete: (success: boolean, duration: number) => void;
   onError: (error: string) => void;
   onTreeSync?: (tree: ExplorerNode) => void;
-  on3DSync?: (partData: {
-    name: string;
-    position: { x: number; y: number; z: number };
-    size: { x: number; y: number; z: number };
-    color: string;
-    anchored?: boolean;
-    transparency?: number;
-  }) => void;
-  on3DRemovePart?: (name: string) => void;
-  onCharacterSync?: (charData: {
-    walkSpeed?: number;
-    health?: number;
-    maxHealth?: number;
-    position?: { x: number; y: number; z: number };
-  }) => void;
 }
 
 interface LuauWebModuleType {
@@ -328,46 +313,6 @@ export async function executeLuauScript(
           } catch (err) {
             console.warn('Failed to sanitize explorer tree:', err);
           }
-        }
-      },
-
-      __bridge_sync_3d_part: (
-        name: unknown,
-        px: unknown,
-        py: unknown,
-        pz: unknown,
-        sx: unknown,
-        sy: unknown,
-        sz: unknown,
-        color: unknown,
-        anchored: unknown,
-        transparency: unknown
-      ) => {
-        if (callbacks.on3DSync) {
-          callbacks.on3DSync({
-            name: String(name || 'Part'),
-            position: { x: Number(px || 0), y: Number(py || 0), z: Number(pz || 0) },
-            size: { x: Number(sx || 4), y: Number(sy || 1), z: Number(sz || 2) },
-            color: String(color || '#a4b0be'),
-            anchored: Boolean(anchored),
-            transparency: Number(transparency || 0),
-          });
-        }
-      },
-
-      __bridge_remove_3d_part: (name: unknown) => {
-        if (callbacks.on3DRemovePart) {
-          callbacks.on3DRemovePart(String(name));
-        }
-      },
-
-      __bridge_sync_character: (walkSpeed: unknown, health: unknown, maxHealth: unknown) => {
-        if (callbacks.onCharacterSync) {
-          callbacks.onCharacterSync({
-            walkSpeed: Number(walkSpeed || 16),
-            health: Number(health || 100),
-            maxHealth: Number(maxHealth || 100),
-          });
         }
       },
     };
