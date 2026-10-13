@@ -412,15 +412,48 @@ export const PlayViewport: React.FC<PlayViewportProps> = ({
         {/* In-Game Top Bar Overlay */}
         <div className="ingame-topbar-overlay">
           <div className="ingame-topbar-left">
-            {/* Chat button */}
-            <button
-              type="button"
-              className="roblox-ingame-btn"
-              onClick={() => setShowChat((prev) => !prev)}
-              title="Toggle In-Game Chat"
-            >
-              <FontAwesomeIcon icon={faCommentDots} />
-            </button>
+            <div className="roblox-topbar-pill">
+              <button
+                type="button"
+                className="roblox-pill-btn"
+                onClick={() => setIsEscMenuOpen((prev) => !prev)}
+                title="Roblox Menu (Esc)"
+              >
+                <div className="roblox-logo-icon" style={{ width: 18, height: 18 }}>
+                  <svg viewBox="0 0 100 100" className="roblox-logo-svg">
+                    <rect
+                      x="15"
+                      y="15"
+                      width="70"
+                      height="70"
+                      rx="14"
+                      fill="#dcdde1"
+                      transform="rotate(-15 50 50)"
+                    />
+                    <rect
+                      x="36"
+                      y="36"
+                      width="28"
+                      height="28"
+                      rx="5"
+                      fill="#18191f"
+                      transform="rotate(-15 50 50)"
+                    />
+                  </svg>
+                </div>
+              </button>
+              <div className="roblox-pill-sep" />
+              <button
+                type="button"
+                className="roblox-pill-btn"
+                onClick={() => setShowChat((prev) => !prev)}
+                title="Toggle In-Game Chat"
+              >
+                <FontAwesomeIcon icon={faCommentDots} />
+              </button>
+              <div className="roblox-pill-sep" />
+              <div className="roblox-status-dot" title="Server Active" />
+            </div>
           </div>
 
           {/* Leaderstats Leaderboard (Top Right) */}

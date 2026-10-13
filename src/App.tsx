@@ -579,7 +579,7 @@ export const App: React.FC = () => {
                   {
                     id: `chat_${Date.now()}`,
                     type: 'output',
-                    text: `Player1: ${text}`,
+                    text: `[Chat] Player1: ${text}`,
                     timestamp: Date.now(),
                     source: 'Chat',
                   },
@@ -627,17 +627,17 @@ export const App: React.FC = () => {
                   />
                 )
               )}
-
-              {/* Collapsible Output Console */}
-              <Console
-                messages={messages}
-                onClear={handleClearConsole}
-                isOpen={isConsoleOpen}
-                onToggle={() => setIsConsoleOpen((prev) => !prev)}
-                isDark={isDark}
-              />
             </>
           )}
+
+          {/* Dedicated Roblox Studio Docked Output Window - Always available across Play and Edit modes */}
+          <Console
+            messages={messages}
+            onClear={handleClearConsole}
+            isOpen={isConsoleOpen}
+            onToggle={() => setIsConsoleOpen((prev) => !prev)}
+            isDark={isDark}
+          />
         </div>
 
         {/* Explorer Drawer: HIDDEN BY DEFAULT, toggled by Globe icon in toolbar */}

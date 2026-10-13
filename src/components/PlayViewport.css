@@ -201,6 +201,55 @@
   transform: scale(1.05);
 }
 
+/* Modern Roblox Frosted Glass TopBar Pill */
+.roblox-topbar-pill {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 3px 8px;
+  pointer-events: auto;
+}
+
+.roblox-pill-btn {
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 13px;
+  transition: background 0.12s ease;
+}
+
+.roblox-pill-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.roblox-pill-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 0 2px;
+}
+
+.roblox-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2ed573;
+  box-shadow: 0 0 6px #2ed573;
+  margin: 0 4px;
+}
+
 /* Leaderstats Leaderboard (Top Right) */
 .ingame-topbar-right {
   display: flex;

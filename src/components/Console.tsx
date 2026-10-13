@@ -72,7 +72,7 @@ const Console: React.FC<ConsoleProps> = ({ messages, onClear, isOpen, onToggle, 
       <div className="console-header" onClick={onToggle}>
         <div className="console-header-left">
           <FontAwesomeIcon icon={faTerminal} className="console-header-icon" />
-          <span className="console-title">Console Output</span>
+          <span className="console-title">Output</span>
           {messages.length > 0 && (
             <span className="console-badge">{messages.length}</span>
           )}

@@ -1,5 +1,12 @@
 import * as THREE from 'three';
-import { createStudsTexture, createRobloxFaceTexture, createSpawnDecalTexture } from './textures';
+import { 
+  createBaseplate2021Texture, 
+  createClassicStudsTexture, 
+  createRobloxFaceTexture, 
+  createSpawnDecalTexture, 
+  createRobloxSkyTexture,
+  getRobloxMaterialTexture 
+} from './textures';
 
 export interface WorldPartData {
   id: string;
@@ -9,6 +16,8 @@ export interface WorldPartData {
   color: string;
   anchored: boolean;
   transparency: number;
+  shape?: string;
+  material?: string;
 }
 
 export interface WebGLPlayerState {
@@ -35,9 +44,11 @@ export class RobloxWebGLEngine {
   private renderer: THREE.WebGLRenderer;
   private animFrameId: number | null = null;
 
-  // Lighting
+  // Environment & Sky
+  private skyMesh: THREE.Mesh;
   private dirLight: THREE.DirectionalLight;
-  private ambientLight: THREE.AmbientLight;
+  private hemiLight: THREE.HemisphereLight;
+  private fillLight: THREE.DirectionalLight;
 
   // Baseplate & Spawn
   private baseplateMesh: THREE.Mesh;
@@ -47,6 +58,7 @@ export class RobloxWebGLEngine {
   private characterGroup: THREE.Group;
   private torsoMesh: THREE.Mesh;
   private headMesh: THREE.Mesh;
+  private facePlane: THREE.Mesh;
   private leftArmJoint: THREE.Group;
   private rightArmJoint: THREE.Group;
   private leftLegJoint: THREE.Group;
@@ -67,16 +79,16 @@ export class RobloxWebGLEngine {
     name: 'Player1',
   };
 
-  public charPos = new THREE.Vector3(0, 0, 0);
+  public charPos = new THREE.Vector3(0, 0.4, 0);
   private charVelocity = new THREE.Vector3(0, 0, 0);
   private charRotationY = 0;
   private walkPhase = 0;
   private isOnGround = true;
-  private gravity = 65;
+  private gravity = 60;
 
   // Camera Orbit
   public cameraYaw = 0;
-  public cameraPitch = 0.35;
+  public cameraPitch = 0.32;
   public cameraDistance = 14;
   private cameraTarget = new THREE.Vector3(0, 3, 0);
 
@@ -105,123 +117,148 @@ export class RobloxWebGLEngine {
   public onPartTouched?: (partName: string) => void;
 
   constructor(container: HTMLElement) {
-    // 1. Scene & Atmosphere
+    // 1. Scene & Skybox Atmosphere
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color('#78b3f8');
-    this.scene.fog = new THREE.FogExp2('#cde2fc', 0.0025);
+    this.scene.background = new THREE.Color(0x1c62b9);
+    // Linear horizon fog that smoothly blends the baseplate into the sky haze
+    this.scene.fog = new THREE.Fog(0x9fcbf8, 120, 1400);
+
+    // Realistic Equirectangular Sky Dome
+    const skyTex = createRobloxSkyTexture();
+    const skyGeo = new THREE.SphereGeometry(1800, 32, 16);
+    const skyMat = new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, depthWrite: false });
+    this.skyMesh = new THREE.Mesh(skyGeo, skyMat);
+    this.scene.add(this.skyMesh);
 
     // 2. Camera
     const aspect = container.clientWidth / (container.clientHeight || 1);
-    this.camera = new THREE.PerspectiveCamera(70, aspect, 0.2, 800);
+    this.camera = new THREE.PerspectiveCamera(70, aspect, 0.2, 3000);
 
-    // 3. Renderer with soft shadows
+    // 3. Renderer with soft PCF shadows and sRGB color space
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(this.renderer.domElement);
 
-    // 4. Roblox Lighting Engine
-    this.ambientLight = new THREE.AmbientLight('#889bb0', 0.75);
-    this.scene.add(this.ambientLight);
+    // 4. Authentic Roblox Studio Lighting Engine
+    // Sky bounce + ground warm bounce
+    this.hemiLight = new THREE.HemisphereLight(0xb4d4ff, 0x7a6348, 0.9);
+    this.scene.add(this.hemiLight);
 
-    const hemiLight = new THREE.HemisphereLight('#78b3f8', '#595d62', 0.4);
-    this.scene.add(hemiLight);
-
-    this.dirLight = new THREE.DirectionalLight('#fff8e7', 1.35);
-    this.dirLight.position.set(60, 140, 70);
+    // Warm directional sun
+    this.dirLight = new THREE.DirectionalLight(0xfff6e6, 1.35);
+    this.dirLight.position.set(250, 500, 200);
     this.dirLight.castShadow = true;
     this.dirLight.shadow.mapSize.width = 2048;
     this.dirLight.shadow.mapSize.height = 2048;
     this.dirLight.shadow.camera.near = 10;
-    this.dirLight.shadow.camera.far = 300;
-    const shadowDist = 60;
+    this.dirLight.shadow.camera.far = 1500;
+    const shadowDist = 120;
     this.dirLight.shadow.camera.left = -shadowDist;
     this.dirLight.shadow.camera.right = shadowDist;
     this.dirLight.shadow.camera.top = shadowDist;
     this.dirLight.shadow.camera.bottom = -shadowDist;
-    this.dirLight.shadow.bias = -0.0005;
+    this.dirLight.shadow.bias = -0.0004;
     this.scene.add(this.dirLight);
 
-    // 5. Authentic Roblox Baseplate (512x20x512 studs)
-    const studsTex = createStudsTexture();
-    studsTex.repeat.set(512, 512);
+    // Soft cool fill light from opposite side
+    this.fillLight = new THREE.DirectionalLight(0xaaccff, 0.25);
+    this.fillLight.position.set(-200, 150, -250);
+    this.scene.add(this.fillLight);
+
+    // 5. Authentic Modern Roblox Baseplate 2021 (1024 x 16 x 1024 studs)
+    const baseplateTex = createBaseplate2021Texture();
+    baseplateTex.repeat.set(64, 64); // 1024 / 16 studs = 64 repeats
 
     const baseplateMat = new THREE.MeshStandardMaterial({
-      color: '#595d62',
-      roughness: 0.82,
+      color: '#ffffff',
+      roughness: 0.85,
       metalness: 0.08,
-      map: studsTex,
+      map: baseplateTex,
     });
-    const baseplateGeo = new THREE.BoxGeometry(512, 20, 512);
+    const baseplateGeo = new THREE.BoxGeometry(1024, 16, 1024);
     this.baseplateMesh = new THREE.Mesh(baseplateGeo, baseplateMat);
-    this.baseplateMesh.position.set(0, -10, 0); // Top surface at Y = 0
+    this.baseplateMesh.position.set(0, -8, 0); // Top surface at Y = 0
     this.baseplateMesh.receiveShadow = true;
     this.scene.add(this.baseplateMesh);
 
-    // Spawn Location with classic Sunburst decal
+    // Subtle Ground Grid Helper on Baseplate Surface
+    const grid = new THREE.GridHelper(1024, 64, 0x48566a, 0x323c4a);
+    grid.position.y = 0.02;
+    (grid.material as THREE.Material).opacity = 0.22;
+    (grid.material as THREE.Material).transparent = true;
+    this.scene.add(grid);
+
+    // Spawn Location Platform (6 x 0.4 x 6 studs) with classic sunburst decal
     const spawnTex = createSpawnDecalTexture();
     const spawnMatTop = new THREE.MeshStandardMaterial({
       color: '#a4b0be',
-      roughness: 0.7,
+      roughness: 0.65,
       metalness: 0.1,
       map: spawnTex,
     });
-    const spawnMatSide = new THREE.MeshStandardMaterial({ color: '#888f99', roughness: 0.8 });
+    const spawnMatSide = new THREE.MeshStandardMaterial({ color: '#7e8794', roughness: 0.75 });
     const spawnMaterials = [
       spawnMatSide, spawnMatSide, spawnMatTop, spawnMatSide, spawnMatSide, spawnMatSide,
     ];
     this.spawnMesh = new THREE.Mesh(new THREE.BoxGeometry(6, 0.4, 6), spawnMaterials);
-    this.spawnMesh.position.set(0, 0.2, 0);
+    this.spawnMesh.position.set(0, 0.2, 0); // Top surface at Y = 0.4
     this.spawnMesh.receiveShadow = true;
     this.spawnMesh.castShadow = true;
     this.scene.add(this.spawnMesh);
 
-    // Add classic interactive template blocks
+    // 6. Add Classic Roblox Playground Template Parts (Stairs, Towers, Obby Platform)
     this.syncPartFromLuau({
-      id: 'demo_green',
-      name: 'GreenPlatform',
-      position: { x: -10, y: 1, z: -8 },
-      size: { x: 6, y: 2, z: 6 },
+      id: 'demo_platform',
+      name: 'SpawnPlatform',
+      position: { x: -14, y: 1.5, z: -10 },
+      size: { x: 8, y: 3, z: 8 },
       color: '#2ecc71',
       anchored: true,
       transparency: 0,
+      material: 'SmoothPlastic',
     });
     this.syncPartFromLuau({
-      id: 'demo_red',
+      id: 'demo_red_tower',
       name: 'RedTower',
-      position: { x: 10, y: 2, z: 6 },
-      size: { x: 4, y: 4, z: 4 },
+      position: { x: 14, y: 3.5, z: 8 },
+      size: { x: 5, y: 7, z: 5 },
       color: '#e74c3c',
       anchored: true,
       transparency: 0,
+      material: 'Brick',
     });
     this.syncPartFromLuau({
-      id: 'demo_blue',
+      id: 'demo_blue_block',
       name: 'BlueBlock',
-      position: { x: -8, y: 1.5, z: 10 },
-      size: { x: 5, y: 3, z: 5 },
+      position: { x: -10, y: 2, z: 12 },
+      size: { x: 6, y: 4, z: 6 },
       color: '#3498db',
       anchored: true,
       transparency: 0,
+      material: 'DiamondPlate',
     });
     this.syncPartFromLuau({
-      id: 'demo_yellow',
-      name: 'YellowSteps',
-      position: { x: 8, y: 2.5, z: -10 },
-      size: { x: 4, y: 5, z: 4 },
+      id: 'demo_neon_core',
+      name: 'NeonCrystal',
+      position: { x: 10, y: 3, z: -14 },
+      size: { x: 4, y: 6, z: 4 },
       color: '#f1c40f',
       anchored: true,
       transparency: 0,
+      material: 'Neon',
     });
 
-    // 6. Build Classic R6 Character Avatar
+    // 7. Build Classic R6 Character Avatar with Cylindrical Beveled Head & Decal
     this.characterGroup = new THREE.Group();
-    const { torso, head, leftArmJ, rightArmJ, leftLegJ, rightLegJ, nameTag, ntCanvas, ntCtx } =
+    const { torso, head, face, leftArmJ, rightArmJ, leftLegJ, rightLegJ, nameTag, ntCanvas, ntCtx } =
       this.buildR6Character();
     this.torsoMesh = torso;
     this.headMesh = head;
+    this.facePlane = face;
     this.leftArmJoint = leftArmJ;
     this.rightArmJoint = rightArmJ;
     this.leftLegJoint = leftLegJ;
@@ -234,7 +271,7 @@ export class RobloxWebGLEngine {
     this.updateNameTag();
     this.scene.add(this.characterGroup);
 
-    // Start Render Loop
+    // Start Simulation & Render Loop
     this.startLoop();
   }
 
@@ -244,10 +281,10 @@ export class RobloxWebGLEngine {
   private buildR6Character() {
     const group = this.characterGroup;
 
-    // Materials
-    const yellowMat = new THREE.MeshStandardMaterial({ color: '#f5cd2f', roughness: 0.65 });
-    const blueMat = new THREE.MeshStandardMaterial({ color: '#0d69ac', roughness: 0.65 });
-    const greenMat = new THREE.MeshStandardMaterial({ color: '#a4bd46', roughness: 0.65 });
+    // Classic Roblox Noob Color Palette
+    const yellowMat = new THREE.MeshStandardMaterial({ color: '#f5cd2f', roughness: 0.5, metalness: 0.05 });
+    const blueMat = new THREE.MeshStandardMaterial({ color: '#0d69ac', roughness: 0.5, metalness: 0.05 });
+    const greenMat = new THREE.MeshStandardMaterial({ color: '#a4bd46', roughness: 0.5, metalness: 0.05 });
 
     // Torso: 2 x 2 x 1 studs
     const torsoGeo = new THREE.BoxGeometry(2, 2, 1);
@@ -257,17 +294,26 @@ export class RobloxWebGLEngine {
     torso.receiveShadow = true;
     group.add(torso);
 
-    // Head: 1.25 x 1.25 x 1.25 studs with smiley face decal on front
-    const faceTex = createRobloxFaceTexture();
-    const faceMat = new THREE.MeshStandardMaterial({ color: '#f5cd2f', map: faceTex, roughness: 0.65 });
-    const headMaterials = [
-      yellowMat, yellowMat, yellowMat, yellowMat, faceMat, yellowMat,
-    ];
-    const headGeo = new THREE.BoxGeometry(1.25, 1.25, 1.25);
-    const head = new THREE.Mesh(headGeo, headMaterials);
+    // Head: Beveled Cylinder with radius 0.625 (diameter 1.25) and height 1.25 studs
+    const headGeo = new THREE.CylinderGeometry(0.625, 0.625, 1.25, 24);
+    headGeo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2));
+    const head = new THREE.Mesh(headGeo, yellowMat);
     head.position.set(0, 4.625, 0);
     head.castShadow = true;
     group.add(head);
+
+    // Front Face Decal: Classic Roblox Smile
+    const faceTex = createRobloxFaceTexture();
+    const faceMat = new THREE.MeshBasicMaterial({
+      map: faceTex,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), faceMat);
+    face.position.set(0, 4.625, -0.635);
+    face.rotation.y = Math.PI;
+    group.add(face);
 
     // Left Arm Joint (Pivot at shoulder: -1.5, 4, 0)
     const leftArmJ = new THREE.Group();
@@ -291,7 +337,7 @@ export class RobloxWebGLEngine {
     const leftLegJ = new THREE.Group();
     leftLegJ.position.set(-0.5, 2, 0);
     const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), greenMat);
-    leftLeg.position.set(0, -1, 0); // Offset down from hip pivot
+    leftLeg.position.set(0, -1, 0);
     leftLeg.castShadow = true;
     leftLegJ.add(leftLeg);
     group.add(leftLegJ);
@@ -314,13 +360,14 @@ export class RobloxWebGLEngine {
     const nameTagTex = new THREE.CanvasTexture(ntCanvas);
     const nameTagMat = new THREE.SpriteMaterial({ map: nameTagTex, transparent: true, depthTest: false });
     const nameTag = new THREE.Sprite(nameTagMat);
-    nameTag.position.set(0, 6.2, 0);
+    nameTag.position.set(0, 6.3, 0);
     nameTag.scale.set(3.8, 1.5, 1);
     group.add(nameTag);
 
     return {
       torso,
       head,
+      face,
       leftArmJ,
       rightArmJ,
       leftLegJ,
@@ -340,22 +387,27 @@ export class RobloxWebGLEngine {
 
     const cx = canvas.width / 2;
 
-    // Player Username
-    ctx.font = 'bold 24px "Segoe UI", Arial, sans-serif';
+    // Player Username in Dark Rounded Pill
+    ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-    ctx.roundRect ? ctx.roundRect(cx - 80, 8, 160, 36, 8) : ctx.fillRect(cx - 80, 8, 160, 36);
-    ctx.fill();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(cx - 85, 8, 170, 36, 18);
+      ctx.fill();
+    } else {
+      ctx.fillRect(cx - 85, 8, 170, 36);
+    }
 
     ctx.fillStyle = '#ffffff';
     ctx.fillText(player.name, cx, 34);
 
     // Health Bar
     const bw = 140;
-    const bh = 10;
+    const bh = 8;
     const healthPct = Math.max(0, Math.min(1, player.health / player.maxHealth));
 
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(cx - bw / 2 - 2, 52, bw + 4, bh + 4);
 
     ctx.fillStyle = healthPct > 0.5 ? '#2ecc71' : healthPct > 0.2 ? '#f39c12' : '#e74c3c';
@@ -365,21 +417,62 @@ export class RobloxWebGLEngine {
   }
 
   /**
-   * Sync a 3D Part created or updated from Luau into the WebGL scene
+   * Switches Baseplate between modern Baseplate 2021 grid and Classic Studs
+   */
+  public setBaseplateStyle(style: 'baseplate2021' | 'classic') {
+    if (style === 'classic') {
+      const studsTex = createClassicStudsTexture();
+      studsTex.repeat.set(128, 128);
+      const mat = this.baseplateMesh.material as THREE.MeshStandardMaterial;
+      mat.map = studsTex;
+      mat.color.set('#a3a2a5');
+      mat.needsUpdate = true;
+    } else {
+      const bpTex = createBaseplate2021Texture();
+      bpTex.repeat.set(64, 64);
+      const mat = this.baseplateMesh.material as THREE.MeshStandardMaterial;
+      mat.map = bpTex;
+      mat.color.set('#ffffff');
+      mat.needsUpdate = true;
+    }
+  }
+
+  /**
+   * Creates or updates a 3D Part in the WebGL scene from Luau scripts
    */
   public syncPartFromLuau(part: WorldPartData) {
     let mesh = this.partsMap.get(part.name);
     const color = new THREE.Color(part.color || '#a4b0be');
+    const matName = part.material || 'SmoothPlastic';
+    const patternTex = getRobloxMaterialTexture(matName);
 
-    if (!mesh) {
-      const geo = new THREE.BoxGeometry(part.size.x, part.size.y, part.size.z);
-      const mat = new THREE.MeshStandardMaterial({
+    let mat: THREE.Material;
+    if (matName === 'Neon') {
+      mat = new THREE.MeshBasicMaterial({ color });
+    } else {
+      mat = new THREE.MeshStandardMaterial({
         color,
-        roughness: 0.7,
-        metalness: 0.1,
+        roughness: matName === 'Metal' || matName === 'DiamondPlate' ? 0.25 : 0.65,
+        metalness: matName === 'Metal' || matName === 'DiamondPlate' ? 0.75 : 0.08,
         transparent: part.transparency > 0,
         opacity: Math.max(0, 1 - part.transparency),
+        map: patternTex || undefined,
       });
+    }
+
+    if (!mesh) {
+      let geo: THREE.BufferGeometry;
+      const shape = part.shape || 'Block';
+
+      if (shape === 'Ball') {
+        geo = new THREE.SphereGeometry(Math.max(part.size.x, part.size.y, part.size.z) / 2, 24, 18);
+      } else if (shape === 'Cylinder') {
+        geo = new THREE.CylinderGeometry(part.size.y / 2, part.size.y / 2, part.size.x, 24);
+        geo.applyMatrix4(new THREE.Matrix4().makeRotationZ(Math.PI / 2));
+      } else {
+        geo = new THREE.BoxGeometry(part.size.x, part.size.y, part.size.z);
+      }
+
       mesh = new THREE.Mesh(geo, mat);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
@@ -387,20 +480,7 @@ export class RobloxWebGLEngine {
       this.scene.add(mesh);
       this.partsMap.set(part.name, mesh);
     } else {
-      // Update geometry if size changed
-      const currentSize = (mesh.geometry as THREE.BoxGeometry).parameters;
-      if (
-        currentSize.width !== part.size.x ||
-        currentSize.height !== part.size.y ||
-        currentSize.depth !== part.size.z
-      ) {
-        mesh.geometry.dispose();
-        mesh.geometry = new THREE.BoxGeometry(part.size.x, part.size.y, part.size.z);
-      }
-      const mat = mesh.material as THREE.MeshStandardMaterial;
-      mat.color.copy(color);
-      mat.transparent = part.transparency > 0;
-      mat.opacity = Math.max(0, 1 - part.transparency);
+      mesh.material = mat;
     }
 
     mesh.position.set(part.position.x, part.position.y, part.position.z);
@@ -411,7 +491,11 @@ export class RobloxWebGLEngine {
     if (mesh) {
       this.scene.remove(mesh);
       mesh.geometry.dispose();
-      (mesh.material as THREE.Material).dispose();
+      if (Array.isArray(mesh.material)) {
+        mesh.material.forEach((m) => m.dispose());
+      } else {
+        mesh.material.dispose();
+      }
       this.partsMap.delete(name);
     }
   }
@@ -429,7 +513,7 @@ export class RobloxWebGLEngine {
   }
 
   public zoomCamera(delta: number) {
-    this.cameraDistance = Math.max(3.5, Math.min(50, this.cameraDistance + delta * 0.025));
+    this.cameraDistance = Math.max(3.5, Math.min(60, this.cameraDistance + delta * 0.025));
   }
 
   /**
@@ -505,24 +589,26 @@ export class RobloxWebGLEngine {
       this.leftArmJoint.rotation.x = armSwing;
       this.rightArmJoint.rotation.x = -armSwing;
 
-      // Subtle torso bob
-      this.torsoMesh.position.y = 3.0 + Math.abs(Math.sin(this.walkPhase * 2)) * 0.12;
-      this.headMesh.position.y = 4.625 + Math.abs(Math.sin(this.walkPhase * 2)) * 0.12;
+      // Subtle torso bobbing
+      const bob = Math.abs(Math.sin(this.walkPhase * 2)) * 0.12;
+      this.torsoMesh.position.y = 3.0 + bob;
+      this.headMesh.position.y = 4.625 + bob;
+      this.facePlane.position.y = 4.625 + bob;
     } else {
-      // Return to idle
+      // Idle pose
       this.leftLegJoint.rotation.x = 0;
       this.rightLegJoint.rotation.x = 0;
       this.leftArmJoint.rotation.x = 0;
       this.rightArmJoint.rotation.x = 0;
       this.torsoMesh.position.y = 3.0;
       this.headMesh.position.y = 4.625;
+      this.facePlane.position.y = 4.625;
     }
 
     // 2. Jump & Vertical Physics
     if (input.jump && this.isOnGround) {
       this.charVelocity.y = 26;
       this.isOnGround = false;
-      // Jump pose
       this.leftArmJoint.rotation.x = 2.2;
       this.rightArmJoint.rotation.x = 2.2;
       this.leftLegJoint.rotation.x = 0.25;
@@ -532,14 +618,21 @@ export class RobloxWebGLEngine {
     this.charVelocity.y -= this.gravity * dt;
     this.charPos.y += this.charVelocity.y * dt;
 
-    // 3. Collision with Baseplate & Parts
-    let floorY = 0;
+    // 3. Collision with Baseplate, Spawn Platform, and Parts
+    let floorY = 0; // Baseplate top surface at Y = 0
 
+    // Spawn platform collision check (at 0, 0.2, 0, height 0.4 -> top surface at Y = 0.4)
+    if (Math.abs(this.charPos.x) <= 3.2 && Math.abs(this.charPos.z) <= 3.2) {
+      floorY = 0.4;
+    }
+
+    // Parts collision
     for (const [name, mesh] of this.partsMap.entries()) {
+      if (!mesh.geometry) continue;
       const geo = mesh.geometry as THREE.BoxGeometry;
-      const sx = geo.parameters.width;
-      const sy = geo.parameters.height;
-      const sz = geo.parameters.depth;
+      const sx = geo.parameters ? geo.parameters.width : 4;
+      const sy = geo.parameters ? geo.parameters.height : 2;
+      const sz = geo.parameters ? geo.parameters.depth : 4;
 
       const px = mesh.position.x;
       const py = mesh.position.y;
@@ -600,8 +693,11 @@ export class RobloxWebGLEngine {
     this.camera.position.set(eyeX, eyeY, eyeZ);
     this.camera.lookAt(this.cameraTarget);
 
-    // Keep sun shadows centered around camera / player
-    this.dirLight.position.set(eyeX + 50, eyeY + 120, eyeZ + 60);
+    // Keep sky dome centered on camera so player never flies out of skybox
+    this.skyMesh.position.copy(this.camera.position);
+
+    // Center directional sun shadows around player camera
+    this.dirLight.position.set(eyeX + 150, eyeY + 300, eyeZ + 120);
     this.dirLight.target.position.copy(this.cameraTarget);
     this.dirLight.target.updateMatrixWorld();
   }
