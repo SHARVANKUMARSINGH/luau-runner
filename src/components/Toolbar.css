@@ -125,12 +125,34 @@
   color: #1e66f5;
 }
 
-/* Run & Stop Buttons */
-.btn-run {
-  background: #a6e3a1;
-  color: #11111b !important;
-  font-weight: 700;
+/* Play, Run & Stop Buttons */
+.btn-play {
+  background: linear-gradient(135deg, #2ecc71, #26af5f);
+  color: #ffffff !important;
+  font-weight: 800;
   padding: 6px 14px;
+  box-shadow: 0 0 12px rgba(46, 204, 113, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.15s ease;
+}
+
+.btn-play:hover {
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  box-shadow: 0 0 16px rgba(46, 204, 113, 0.55);
+  transform: translateY(-1px);
+}
+
+.app-toolbar.light .btn-play {
+  background: linear-gradient(135deg, #27ae60, #219a52);
+  color: #fff !important;
+}
+
+.btn-run {
+  background: rgba(166, 227, 161, 0.2);
+  border: 1px solid #a6e3a1;
+  color: #a6e3a1 !important;
+  font-weight: 700;
+  padding: 6px 12px;
 }
 
 .btn-run:hover {

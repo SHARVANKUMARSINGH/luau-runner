@@ -32,6 +32,9 @@ import DocsModal from './components/DocsModal';
 import ExamplesModal from './components/ExamplesModal';
 import VirtualMouse from './components/VirtualMouse';
 import AiAgentModal from './components/AiAgentModal';
+import PlayViewport from './components/PlayViewport';
+import { RobloxSimulationWorld } from './engine/roblox-3d/simulation';
+import type { PlayMode } from './engine/roblox-3d/simulation';
 import { useDialog } from './context/DialogContext';
 
 import './App.css';
@@ -62,8 +65,11 @@ export const App: React.FC = () => {
   // Console Messages
   const [messages, setMessages] = useState<ConsoleMessage[]>([]);
 
-  // Execution State
+  // Execution & Simulation State
   const [isRunning, setIsRunning] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playMode, setPlayMode] = useState<PlayMode>('solo');
+  const world = useMemo(() => new RobloxSimulationWorld(), []);
 
   // DataModel Hierarchy Tree for Explorer
   const [tree, setTree] = useState<ExplorerNode | null>(() => {
@@ -134,9 +140,86 @@ export const App: React.FC = () => {
     );
   }, [activeScriptId]);
 
-  // Run script
+  // Play 3D simulation with Roblox Avatar & Server/Client runtime
+  const handlePlay = useCallback(
+    async (selectedMode: PlayMode = 'solo') => {
+      if (!activeScript || isRunning || isPlaying) return;
+
+      world.mode = selectedMode;
+      world.respawnCharacter();
+      setIsPlaying(true);
+      setIsRunning(true);
+      setPlayMode(selectedMode);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `sys_play_${Date.now()}`,
+          type: 'system',
+          text: `🎮 Launching 3D Roblox Studio ${selectedMode === 'solo' ? 'Play Solo' : 'Server Run'} with authentic client & server simulation...`,
+          timestamp: Date.now(),
+        },
+      ]);
+
+      await executeLuauScript(
+        activeScript,
+        scripts,
+        {
+          onOutput: (msg) => {
+            setMessages((prev) => [...prev, msg]);
+          },
+          onComplete: () => {
+            // Simulation keeps running in 3D viewport until user clicks Stop
+          },
+          onError: (errMsg) => {
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `err_${Date.now()}`,
+                type: 'error',
+                text: errMsg,
+                timestamp: Date.now(),
+                source: activeScript.name,
+              },
+            ]);
+          },
+          onTreeSync: (newTree) => {
+            setTree(newTree);
+          },
+          on3DSync: (partData) => {
+            world.syncPartFromLuau(
+              partData.name,
+              partData.position,
+              partData.size,
+              partData.color,
+              partData.anchored,
+              partData.transparency
+            );
+          },
+          on3DRemovePart: (name) => {
+            world.removePart(name);
+          },
+          onCharacterSync: (charData) => {
+            if (charData.walkSpeed !== undefined) {
+              world.character.walkSpeed = charData.walkSpeed;
+            }
+            if (charData.health !== undefined) {
+              world.character.health = charData.health;
+            }
+            if (charData.maxHealth !== undefined) {
+              world.character.maxHealth = charData.maxHealth;
+            }
+          },
+        },
+        settings.executionTimeout
+      );
+    },
+    [activeScript, scripts, isRunning, isPlaying, world, settings.executionTimeout]
+  );
+
+  // Run script (server-only in background)
   const handleRun = useCallback(async () => {
-    if (!activeScript || isRunning) return;
+    if (!activeScript || isRunning || isPlaying) return;
 
     setIsRunning(true);
     setIsConsoleOpen(true);
@@ -167,15 +250,37 @@ export const App: React.FC = () => {
         onTreeSync: (newTree) => {
           setTree(newTree);
         },
+        on3DSync: (partData) => {
+          world.syncPartFromLuau(
+            partData.name,
+            partData.position,
+            partData.size,
+            partData.color,
+            partData.anchored,
+            partData.transparency
+          );
+        },
+        on3DRemovePart: (name) => {
+          world.removePart(name);
+        },
+        onCharacterSync: (charData) => {
+          if (charData.walkSpeed !== undefined) {
+            world.character.walkSpeed = charData.walkSpeed;
+          }
+          if (charData.health !== undefined) {
+            world.character.health = charData.health;
+          }
+        },
       },
       settings.executionTimeout
     );
-  }, [activeScript, scripts, isRunning, settings.executionTimeout]);
+  }, [activeScript, scripts, isRunning, isPlaying, world, settings.executionTimeout]);
 
-  // Stop script
+  // Stop script & 3D Play session
   const handleStop = useCallback(() => {
     stopExecution();
     setIsRunning(false);
+    setIsPlaying(false);
   }, []);
 
   // Clear console
@@ -336,9 +441,19 @@ export const App: React.FC = () => {
   // Global Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      if (e.key === 'F5') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleStop();
+        } else {
+          handlePlay('solo');
+        }
+      } else if (e.key === 'F8') {
         e.preventDefault();
         handleRun();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handlePlay('solo');
       } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         saveScripts(scripts);
@@ -356,13 +471,15 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleRun, scripts]);
+  }, [handlePlay, handleRun, handleStop, scripts]);
 
   return (
     <div className={`app-root ${isDark ? 'dark' : 'light'}`}>
       {/* Top Runner Toolbar with Real Font Awesome Icons */}
       <Toolbar
         isRunning={isRunning}
+        isPlaying={isPlaying}
+        onPlay={() => handlePlay('solo')}
         onRun={handleRun}
         onStop={handleStop}
         isExplorerOpen={isExplorerOpen}
@@ -387,56 +504,72 @@ export const App: React.FC = () => {
 
       {/* Main Layout Area */}
       <div className="app-main-area">
-        {/* Editor Area: occupies all available space when Explorer is closed */}
+        {/* Editor Area or 3D Play Viewport */}
         <div className="editor-console-column">
-          {/* Script Type Tab Bar (Script, Server Script, Local Script, Module Script) */}
-          <ScriptTabBar
-            scripts={scripts}
-            activeScriptId={activeScriptId}
-            onSelectScript={setActiveScriptId}
-            onNewScript={() => setIsNewScriptModalOpen(true)}
-            onRenameScript={(script) => setRenamingScript(script)}
-            onDeleteScript={handleDeleteScript}
-            isDark={isDark}
-          />
+          {isPlaying ? (
+            /* 3D Roblox Studio Play Simulation Viewport */
+            <PlayViewport
+              world={world}
+              messages={messages}
+              mode={playMode}
+              onStop={handleStop}
+              onToggleMode={(newMode) => {
+                setPlayMode(newMode);
+                world.mode = newMode;
+              }}
+            />
+          ) : (
+            <>
+              {/* Script Type Tab Bar (Script, Server Script, Local Script, Module Script) */}
+              <ScriptTabBar
+                scripts={scripts}
+                activeScriptId={activeScriptId}
+                onSelectScript={setActiveScriptId}
+                onNewScript={() => setIsNewScriptModalOpen(true)}
+                onRenameScript={(script) => setRenamingScript(script)}
+                onDeleteScript={handleDeleteScript}
+                isDark={isDark}
+              />
 
-          {/* Code Editor: CodeMirror 6 (Default) or Monaco Editor (Selectable in Appearance tab) */}
-          {activeScript && (
-            settings.editorEngine === 'monaco' ? (
-              <MonacoEditor
-                key={`monaco_${activeScript.id}`}
-                value={activeScript.content}
-                onChange={handleContentChange}
-                onRun={handleRun}
+              {/* Code Editor: CodeMirror 6 (Default) or Monaco Editor (Selectable in Appearance tab) */}
+              {activeScript && (
+                settings.editorEngine === 'monaco' ? (
+                  <MonacoEditor
+                    key={`monaco_${activeScript.id}`}
+                    value={activeScript.content}
+                    onChange={handleContentChange}
+                    onRun={handleRun}
+                    isDark={isDark}
+                    fontSize={settings.fontSize}
+                    isRunning={isRunning}
+                    scriptType={activeScript.type}
+                    scriptName={activeScript.name}
+                  />
+                ) : (
+                  <CodeEditor
+                    key={`cm_${activeScript.id}`}
+                    value={activeScript.content}
+                    onChange={handleContentChange}
+                    onRun={handleRun}
+                    isDark={isDark}
+                    fontSize={settings.fontSize}
+                    isRunning={isRunning}
+                    scriptType={activeScript.type}
+                    scriptName={activeScript.name}
+                  />
+                )
+              )}
+
+              {/* Collapsible Output Console */}
+              <Console
+                messages={messages}
+                onClear={handleClearConsole}
+                isOpen={isConsoleOpen}
+                onToggle={() => setIsConsoleOpen((prev) => !prev)}
                 isDark={isDark}
-                fontSize={settings.fontSize}
-                isRunning={isRunning}
-                scriptType={activeScript.type}
-                scriptName={activeScript.name}
               />
-            ) : (
-              <CodeEditor
-                key={`cm_${activeScript.id}`}
-                value={activeScript.content}
-                onChange={handleContentChange}
-                onRun={handleRun}
-                isDark={isDark}
-                fontSize={settings.fontSize}
-                isRunning={isRunning}
-                scriptType={activeScript.type}
-                scriptName={activeScript.name}
-              />
-            )
+            </>
           )}
-
-          {/* Collapsible Output Console */}
-          <Console
-            messages={messages}
-            onClear={handleClearConsole}
-            isOpen={isConsoleOpen}
-            onToggle={() => setIsConsoleOpen((prev) => !prev)}
-            isDark={isDark}
-          />
         </div>
 
         {/* Explorer Drawer: HIDDEN BY DEFAULT, toggled by Globe icon in toolbar */}
