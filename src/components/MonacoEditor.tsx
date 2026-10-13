@@ -1,5 +1,5 @@
-import React, { useRef, useState, useCallback } from 'react';
-import Editor, { type OnMount, type Monaco } from '@monaco-editor/react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
+import Editor, { loader, type OnMount, type BeforeMount, type Monaco } from '@monaco-editor/react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faCode, 
@@ -69,13 +69,10 @@ const CONTEXT_ICONS: Record<ScriptType, typeof faCode> = {
   ModuleScript: faPuzzlePiece,
 };
 
-let isMonacoConfigured = false;
+let isMonacoLanguagesConfigured = false;
 
-function setupMonacoLanguages(monaco: Monaco) {
-  if (isMonacoConfigured) return;
-  isMonacoConfigured = true;
-
-  // 1. Define custom Catppuccin / Roblox Studio Themes
+export function setupMonacoThemes(monaco: Monaco) {
+  // Define custom Catppuccin Mocha / Roblox Studio Dark Theme
   monaco.editor.defineTheme('roblox-studio-dark', {
     base: 'vs-dark',
     inherit: true,
@@ -100,6 +97,7 @@ function setupMonacoLanguages(monaco: Monaco) {
     },
   });
 
+  // Define custom Catppuccin Latte / Roblox Studio Light Theme
   monaco.editor.defineTheme('roblox-studio-light', {
     base: 'vs',
     inherit: true,
@@ -121,8 +119,19 @@ function setupMonacoLanguages(monaco: Monaco) {
       'editor.selectionBackground': '#acb0be80',
     },
   });
+}
 
-  // 2. Language Configuration (Auto-Closing & On-Enter Rules)
+// Pre-register themes eagerly as soon as the module loads
+loader.init().then((monaco) => {
+  setupMonacoThemes(monaco);
+}).catch(() => {});
+
+function setupMonacoLanguages(monaco: Monaco) {
+  setupMonacoThemes(monaco);
+  if (isMonacoLanguagesConfigured) return;
+  isMonacoLanguagesConfigured = true;
+
+  // 1. Language Configuration (Auto-Closing & On-Enter Rules)
   monaco.languages.setLanguageConfiguration('lua', {
     comments: {
       lineComment: '--',
@@ -523,6 +532,7 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
   scriptName = 'Script',
 }) => {
   const editorRef = useRef<any>(null);
+  const monacoRef = useRef<Monaco | null>(null);
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
   const [docStats, setDocStats] = useState({ lines: 1, chars: value.length });
   const [matchInfo, setMatchInfo] = useState<{ word: string; count: number } | null>(null);
@@ -537,9 +547,26 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
     }, 1800);
   }, []);
 
+  // Sync theme whenever isDark toggles
+  useEffect(() => {
+    if (monacoRef.current) {
+      monacoRef.current.editor.setTheme(isDark ? 'roblox-studio-dark' : 'roblox-studio-light');
+    }
+  }, [isDark]);
+
+  const handleBeforeMount: BeforeMount = (monaco) => {
+    monacoRef.current = monaco;
+    setupMonacoThemes(monaco);
+    setupMonacoLanguages(monaco);
+    monaco.editor.setTheme(isDark ? 'roblox-studio-dark' : 'roblox-studio-light');
+  };
+
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
+    setupMonacoThemes(monaco);
     setupMonacoLanguages(monaco);
+    monaco.editor.setTheme(isDark ? 'roblox-studio-dark' : 'roblox-studio-light');
 
     // Bind Ctrl+Enter for running script
     if (onRun) {
@@ -749,7 +776,26 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
           theme={isDark ? 'roblox-studio-dark' : 'roblox-studio-light'}
           value={value}
           onChange={(val) => onChange(val || '')}
+          beforeMount={handleBeforeMount}
           onMount={handleEditorDidMount}
+          loading={
+            <div 
+              className={`monaco-loading-placeholder ${isDark ? 'dark' : 'light'}`}
+              style={{
+                width: '100%',
+                height: '100%',
+                backgroundColor: isDark ? '#1e1e2e' : '#eff1f5',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: isDark ? '#a6adc8' : '#6c6f85',
+                fontSize: '12px',
+                fontFamily: "'JetBrains Mono', monospace"
+              }}
+            >
+              <span>Loading Luau Editor...</span>
+            </div>
+          }
           options={{
             fontSize,
             fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",

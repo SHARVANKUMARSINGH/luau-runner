@@ -51,11 +51,37 @@
   }
 }
 
-/* CodeMirror Scroll Container */
+/* Code Editor Container & Monaco/CodeMirror Background Enforcement */
 .code-editor-container {
   flex: 1;
   overflow: hidden;
   position: relative;
+}
+
+.code-editor-wrapper.dark .code-editor-container,
+.code-editor-wrapper.dark .monaco-editor,
+.code-editor-wrapper.dark .monaco-editor-background,
+.code-editor-wrapper.dark .monaco-editor .margin,
+.code-editor-wrapper.dark .monaco-editor .overflow-guard {
+  background-color: #1e1e2e !important;
+}
+
+.code-editor-wrapper.dark .monaco-editor .view-overlays,
+.code-editor-wrapper.dark .monaco-editor .view-lines {
+  background-color: transparent !important;
+}
+
+.code-editor-wrapper.light .code-editor-container,
+.code-editor-wrapper.light .monaco-editor,
+.code-editor-wrapper.light .monaco-editor-background,
+.code-editor-wrapper.light .monaco-editor .margin,
+.code-editor-wrapper.light .monaco-editor .overflow-guard {
+  background-color: #eff1f5 !important;
+}
+
+.code-editor-wrapper.light .monaco-editor .view-overlays,
+.code-editor-wrapper.light .monaco-editor .view-lines {
+  background-color: transparent !important;
 }
 
 .code-editor-container .cm-editor {
