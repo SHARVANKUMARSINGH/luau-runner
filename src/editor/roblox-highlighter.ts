@@ -35,6 +35,8 @@ const ROBLOX_TOKENS_REGEX = new RegExp(
   'Parent|Name|ClassName|Position|Size|Anchored|CanCollide|Transparency|Color|Material|Value|Text|Enabled|UserId|' +
   // Common Signals
   'Changed|ChildAdded|ChildRemoved|Destroying|OnServerEvent|OnClientEvent|Event|' +
+  // Control keywords & end (Roblox Studio Purple)
+  'end|then|do|while|repeat|until|if|else|elseif|for|function|local|return|break|continue|' +
   // Literals & booleans (including common typos)
   'true|false|nil|ture|flase|self' +
   ')\\b',
@@ -45,6 +47,21 @@ const robloxDecorator = new MatchDecorator({
   regexp: ROBLOX_TOKENS_REGEX,
   decoration: (match) => {
     const word = match[1];
+
+    // Dedicated Roblox Studio purple for 'end'
+    if (word === 'end') {
+      return Decoration.mark({ class: 'cm-roblox-end' });
+    }
+
+    // Control flow keywords in Roblox Studio purple
+    if (
+      word === 'then' || word === 'do' || word === 'while' || word === 'repeat' ||
+      word === 'until' || word === 'if' || word === 'else' || word === 'elseif' ||
+      word === 'for' || word === 'function' || word === 'local' || word === 'return' ||
+      word === 'break' || word === 'continue'
+    ) {
+      return Decoration.mark({ class: 'cm-roblox-keyword' });
+    }
 
     // Booleans & nil
     if (word === 'true' || word === 'false' || word === 'nil' || word === 'ture' || word === 'flase') {
@@ -246,14 +263,14 @@ export const colorPreviewPlugin: Extension = [
 ];
 
 // ===== 3. Interactive Hover Documentation =====
-interface DocEntry {
+export interface DocEntry {
   type: 'service' | 'class' | 'method' | 'function' | 'datatype' | 'keyword';
   signature?: string;
   summary: string;
   example?: string;
 }
 
-const ROBLOX_DOCS: Record<string, DocEntry> = {
+export const ROBLOX_DOCS: Record<string, DocEntry> = {
   'game': {
     type: 'service',
     signature: 'game: DataModel',

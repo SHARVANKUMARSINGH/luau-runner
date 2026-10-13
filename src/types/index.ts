@@ -51,6 +51,8 @@ export interface ExecutionState {
 }
 
 // ===== Settings Types =====
+export type EditorEngine = 'codemirror' | 'monaco';
+
 export interface AppSettings {
   theme: ThemeMode;
   fontSize: number;
@@ -59,6 +61,7 @@ export interface AppSettings {
   executionTimeout: number;
   showLineNumbers: boolean;
   autoSave: boolean;
+  editorEngine: EditorEngine;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -69,6 +72,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   executionTimeout: 10000,
   showLineNumbers: true,
   autoSave: true,
+  editorEngine: 'codemirror',
 };
 
 // ===== Script Templates =====

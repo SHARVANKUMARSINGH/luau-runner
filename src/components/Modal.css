@@ -304,6 +304,91 @@
   background: #ccd0da;
 }
 
+/* Settings Tabs */
+.settings-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 14px 18px 0 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.modal-container.light .settings-tabs {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+.settings-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 6px 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: inherit;
+  opacity: 0.65;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.settings-tab-btn:hover {
+  opacity: 0.95;
+}
+
+.modal-container.dark .settings-tab-btn.active {
+  opacity: 1;
+  color: #89b4fa;
+  border-bottom-color: #89b4fa;
+}
+
+.modal-container.light .settings-tab-btn.active {
+  opacity: 1;
+  color: #1e66f5;
+  border-bottom-color: #1e66f5;
+}
+
+/* Engine Toggle Group */
+.engine-toggle-group {
+  display: flex;
+  gap: 8px;
+}
+
+.engine-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.modal-container.light .engine-btn {
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.modal-container.dark .engine-btn.active {
+  background: rgba(137, 180, 250, 0.18);
+  border-color: #89b4fa;
+  color: #89b4fa;
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(137, 180, 250, 0.25);
+}
+
+.modal-container.light .engine-btn.active {
+  background: rgba(30, 102, 245, 0.14);
+  border-color: #1e66f5;
+  color: #1e66f5;
+  font-weight: 700;
+}
+
 /* Settings Body */
 .settings-body {
   display: flex;

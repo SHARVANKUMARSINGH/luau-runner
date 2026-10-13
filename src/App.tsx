@@ -22,6 +22,7 @@ import { DataModel } from './engine/roblox-sim';
 import Toolbar from './components/Toolbar';
 import ScriptTabBar from './components/ScriptTabBar';
 import CodeEditor from './components/CodeEditor';
+import MonacoEditor from './components/MonacoEditor';
 import Console from './components/Console';
 import Explorer from './components/Explorer';
 import NewScriptModal from './components/NewScriptModal';
@@ -386,19 +387,33 @@ export const App: React.FC = () => {
             isDark={isDark}
           />
 
-          {/* CodeMirror 6 Code Editor */}
+          {/* Code Editor: CodeMirror 6 (Default) or Monaco Editor (Selectable in Appearance tab) */}
           {activeScript && (
-            <CodeEditor
-              key={activeScript.id}
-              value={activeScript.content}
-              onChange={handleContentChange}
-              onRun={handleRun}
-              isDark={isDark}
-              fontSize={settings.fontSize}
-              isRunning={isRunning}
-              scriptType={activeScript.type}
-              scriptName={activeScript.name}
-            />
+            settings.editorEngine === 'monaco' ? (
+              <MonacoEditor
+                key={`monaco_${activeScript.id}`}
+                value={activeScript.content}
+                onChange={handleContentChange}
+                onRun={handleRun}
+                isDark={isDark}
+                fontSize={settings.fontSize}
+                isRunning={isRunning}
+                scriptType={activeScript.type}
+                scriptName={activeScript.name}
+              />
+            ) : (
+              <CodeEditor
+                key={`cm_${activeScript.id}`}
+                value={activeScript.content}
+                onChange={handleContentChange}
+                onRun={handleRun}
+                isDark={isDark}
+                fontSize={settings.fontSize}
+                isRunning={isRunning}
+                scriptType={activeScript.type}
+                scriptName={activeScript.name}
+              />
+            )
           )}
 
           {/* Collapsible Output Console */}

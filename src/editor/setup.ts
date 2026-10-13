@@ -211,6 +211,16 @@ export const darkTheme = EditorView.theme({
   '.cm-roblox-prop': {
     color: '#cba6f7 !important',
   },
+  // Dedicated Roblox Studio Purple for 'end' and Control Keywords
+  '.cm-roblox-end': {
+    color: '#cba6f7 !important',
+    fontWeight: '700',
+    textShadow: '0 0 8px rgba(203, 166, 247, 0.45)',
+  },
+  '.cm-roblox-keyword': {
+    color: '#cba6f7 !important',
+    fontWeight: '700',
+  },
   // Alive Word Matches & Active Line
   '.cm-selectionMatch': {
     backgroundColor: 'rgba(137, 180, 250, 0.22) !important',
@@ -364,6 +374,15 @@ export const lightTheme = EditorView.theme({
   },
   '.cm-roblox-prop': {
     color: '#8839ef !important',
+  },
+  // Dedicated Roblox Studio Purple for 'end' and Control Keywords
+  '.cm-roblox-end': {
+    color: '#8839ef !important',
+    fontWeight: '700',
+  },
+  '.cm-roblox-keyword': {
+    color: '#8839ef !important',
+    fontWeight: '700',
   },
   // Alive Word Matches & Active Line
   '.cm-selectionMatch': {
