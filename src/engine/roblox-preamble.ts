@@ -53,9 +53,11 @@ function Signal:Connect(fn)
     function conn:Disconnect()
         self.Connected = false
     end
+    conn.disconnect = conn.Disconnect
     table.insert(self._connections, conn)
     return conn
 end
+Signal.connect = Signal.Connect
 
 function Signal:Once(fn)
     local conn
@@ -65,6 +67,7 @@ function Signal:Once(fn)
     end)
     return conn
 end
+Signal.once = Signal.Once
 
 function Signal:Fire(...)
     local conns = self._connections
@@ -77,6 +80,7 @@ function Signal:Fire(...)
         end
     end
 end
+Signal.fire = Signal.Fire
 
 function Signal:Wait()
     local result = nil
@@ -88,7 +92,15 @@ function Signal:Wait()
     while waiting do
         task.wait(0.01)
     end
-    return unpack(result)
+    return unpack(result or {})
+end
+Signal.wait = Signal.Wait
+
+function Signal:DisconnectAll()
+    for _, c in ipairs(self._connections) do
+        c.Connected = false
+    end
+    self._connections = {}
 end
 
 -- =========================================================================
@@ -201,6 +213,35 @@ Enum = {
 }
 
 -- =========================================================================
+-- 2.5 Complete Roblox typeof Implementation
+-- =========================================================================
+local _lua_type = type
+function typeof(v)
+    if v == nil then return "nil" end
+    if _lua_type(v) == "table" then
+        if rawget(v, "_props") and rawget(v, "_props").ClassName then return "Instance" end
+        if rawget(v, "_name") == "Signal" then return "RBXScriptSignal" end
+        if rawget(v, "_group") then return "EnumItem" end
+        if rawget(v, "_name") and Enum and Enum[rawget(v, "_name")] then return "Enum" end
+        local mt = getmetatable(v)
+        if mt == CFrame or (v.Position and v.LookVector) then return "CFrame" end
+        if mt == Vector3 or (v.X and v.Y and v.Z and not v.LookVector) then return "Vector3" end
+        if mt == UDim2 or (v.X and v.Y and type(v.X) == "table" and v.X.Scale ~= nil) then return "UDim2" end
+        if mt == Vector2 or (v.X and v.Y and v.Z == nil and not v.Scale) then return "Vector2" end
+        if mt == Color3 or (v.R and v.G and v.B) then return "Color3" end
+        if mt == BrickColor or (v.Number and v.Color and v.r) then return "BrickColor" end
+        if mt == UDim or (v.Scale and v.Offset) then return "UDim" end
+        if mt == TweenInfo or (v.Time and v.EasingStyle) then return "TweenInfo" end
+        if mt == Ray or (v.Origin and v.Direction) then return "Ray" end
+        if mt == Rect or (v.Min and v.Max and v.Width) then return "Rect" end
+        if mt == NumberRange or (v.Min and v.Max) then return "NumberRange" end
+        if mt == RaycastParams or (v.FilterDescendantsInstances and v.FilterType) then return "RaycastParams" end
+        if mt == OverlapParams or (v.FilterDescendantsInstances and v.MaxParts) then return "OverlapParams" end
+    end
+    return _lua_type(v)
+end
+
+-- =========================================================================
 -- 3. Complete Roblox Datatypes (Vector3, Vector2, CFrame, Color3, UDim2, etc.)
 -- =========================================================================
 Vector3 = {}
@@ -244,18 +285,23 @@ Vector3.__index = function(self, key)
     return Vector3Methods[key]
 end
 function Vector3.__add(a, b)
-    return Vector3.new(a.X + b.X, a.Y + b.Y, a.Z + b.Z)
+    if type(a) == "number" then return Vector3.new(a + b.X, a + b.Y, a + b.Z) end
+    if type(b) == "number" then return Vector3.new(a.X + b, a.Y + b, a.Z + b) end
+    return Vector3.new((a and a.X or 0) + (b and b.X or 0), (a and a.Y or 0) + (b and b.Y or 0), (a and a.Z or 0) + (b and b.Z or 0))
 end
 function Vector3.__sub(a, b)
-    return Vector3.new(a.X - b.X, a.Y - b.Y, a.Z - b.Z)
+    if type(a) == "number" then return Vector3.new(a - b.X, a - b.Y, a - b.Z) end
+    if type(b) == "number" then return Vector3.new(a.X - b, a.Y - b, a.Z - b) end
+    return Vector3.new((a and a.X or 0) - (b and b.X or 0), (a and a.Y or 0) - (b and b.Y or 0), (a and a.Z or 0) - (b and b.Z or 0))
 end
 function Vector3.__mul(a, b)
     if type(a) == "number" then return Vector3.new(a * b.X, a * b.Y, a * b.Z) end
     if type(b) == "number" then return Vector3.new(a.X * b, a.Y * b, a.Z * b) end
-    return Vector3.new(a.X * b.X, a.Y * b.Y, a.Z * b.Z)
+    return Vector3.new((a and a.X or 0) * (b and b.X or 0), (a and a.Y or 0) * (b and b.Y or 0), (a and a.Z or 0) * (b and b.Z or 0))
 end
 function Vector3.__div(a, b)
     if type(b) == "number" then return Vector3.new(a.X / b, a.Y / b, a.Z / b) end
+    if type(a) == "number" then return Vector3.new(a / b.X, a / b.Y, a / b.Z) end
     return Vector3.new(a.X / b.X, a.Y / b.Y, a.Z / b.Z)
 end
 function Vector3.__unm(a)
@@ -312,11 +358,31 @@ function Vector2:__tostring() return string.format("%g, %g", self.X, self.Y) end
 CFrame = {}
 local CFrameMethods = {}
 
-function CFrame.new(x, y, z)
-    if typeof(x) == "Vector3" and typeof(y) == "Vector3" then
-        -- CFrame.new(pos, lookAt)
-        local pos = x
-        local lookAt = y
+function CFrame.new(...)
+    local n = select("#", ...)
+    if n == 0 then
+        return setmetatable({
+            Position = Vector3.zero, X = 0, Y = 0, Z = 0,
+            LookVector = Vector3.new(0, 0, -1), RightVector = Vector3.new(1, 0, 0), UpVector = Vector3.new(0, 1, 0),
+            _m = { 1, 0, 0, 0, 1, 0, 0, 0, 1 }
+        }, CFrame)
+    end
+    if n >= 12 then
+        local x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 = ...
+        local m = { r00 or 1, r01 or 0, r02 or 0, r10 or 0, r11 or 1, r12 or 0, r20 or 0, r21 or 0, r22 or 1 }
+        local pos = Vector3.new(x or 0, y or 0, z or 0)
+        return setmetatable({
+            Position = pos, X = pos.X, Y = pos.Y, Z = pos.Z,
+            RightVector = Vector3.new(m[1], m[4], m[7]),
+            UpVector = Vector3.new(m[2], m[5], m[8]),
+            LookVector = Vector3.new(-m[3], -m[6], -m[9]),
+            _m = m
+        }, CFrame)
+    end
+    local a, b, c = ...
+    if (typeof(a) == "Vector3" or (type(a) == "table" and a.X and not a.LookVector)) and (typeof(b) == "Vector3" or (type(b) == "table" and b.X and not b.LookVector)) then
+        local pos = a
+        local lookAt = b
         local forward = (pos - lookAt).Unit
         if forward.Magnitude == 0 then forward = Vector3.new(0, 0, -1) end
         local up = Vector3.new(0, 1, 0)
@@ -328,7 +394,12 @@ function CFrame.new(x, y, z)
             _m = { right.X, up.X, forward.X, right.Y, up.Y, forward.Y, right.Z, up.Z, forward.Z }
         }, CFrame)
     end
-    local pos = if typeof(x) == "table" and x.X then x else Vector3.new(x or 0, y or 0, z or 0)
+    local pos
+    if (typeof(a) == "Vector3" or (type(a) == "table" and a.X and not a.LookVector)) and b == nil then
+        pos = a
+    else
+        pos = Vector3.new(a or 0, b or 0, c or 0)
+    end
     return setmetatable({
         Position = pos, X = pos.X, Y = pos.Y, Z = pos.Z,
         LookVector = Vector3.new(0, 0, -1), RightVector = Vector3.new(1, 0, 0), UpVector = Vector3.new(0, 1, 0),
@@ -359,10 +430,46 @@ function CFrame.Angles(rx, ry, rz)
 end
 CFrame.identity = CFrame.new(0, 0, 0)
 function CFrame.lookAt(at, look) return CFrame.new(at, look) end
+CFrame.fromEulerAnglesXYZ = CFrame.Angles
+CFrame.fromEulerAnglesYXZ = CFrame.Angles
+CFrame.fromOrientation = CFrame.Angles
+function CFrame.fromAxisAngle(axis, angle)
+    local u = if typeof(axis) == "Vector3" and axis.Magnitude > 0 then axis.Unit else Vector3.yAxis
+    local c = math.cos(angle or 0)
+    local s = math.sin(angle or 0)
+    local t = 1 - c
+    local x, y, z = u.X, u.Y, u.Z
+    local m0 = t * x * x + c
+    local m1 = t * x * y - s * z
+    local m2 = t * x * z + s * y
+    local m3 = t * x * y + s * z
+    local m4 = t * y * y + c
+    local m5 = t * y * z - s * x
+    local m6 = t * x * z - s * y
+    local m7 = t * y * z + s * x
+    local m8 = t * z * z + c
+    return setmetatable({
+        Position = Vector3.zero, X = 0, Y = 0, Z = 0,
+        LookVector = Vector3.new(-m2, -m5, -m8),
+        RightVector = Vector3.new(m0, m3, m6),
+        UpVector = Vector3.new(m1, m4, m7),
+        _m = { m0, m1, m2, m3, m4, m5, m6, m7, m8 }
+    }, CFrame)
+end
+function CFrame.fromMatrix(pos, vX, vY, vZ)
+    local p = pos or Vector3.zero
+    local rx = vX or Vector3.xAxis
+    local ry = vY or Vector3.yAxis
+    local rz = vZ or (rx:Cross(ry)).Unit
+    return setmetatable({
+        Position = p, X = p.X, Y = p.Y, Z = p.Z,
+        LookVector = -rz, RightVector = rx, UpVector = ry,
+        _m = { rx.X, ry.X, rz.X, rx.Y, ry.Y, rz.Y, rx.Z, ry.Z, rz.Z }
+    }, CFrame)
+end
 
 function CFrameMethods:Inverse()
     local m = self._m or { 1, 0, 0, 0, 1, 0, 0, 0, 1 }
-    -- Transpose 3x3 rotation
     local tm = { m[1], m[4], m[7], m[2], m[5], m[8], m[3], m[6], m[9] }
     local invPos = Vector3.new(
         -(tm[1] * self.X + tm[2] * self.Y + tm[3] * self.Z),
@@ -379,14 +486,42 @@ function CFrameMethods:Inverse()
 end
 
 function CFrameMethods:Lerp(goal, alpha)
-    local p = self.Position:Lerp(goal.Position, alpha)
-    return CFrame.new(p.X, p.Y, p.Z)
+    local a = alpha or 0
+    local p = self.Position:Lerp(goal.Position, a)
+    local m1 = self._m or { 1, 0, 0, 0, 1, 0, 0, 0, 1 }
+    local m2 = goal._m or { 1, 0, 0, 0, 1, 0, 0, 0, 1 }
+    local m3 = {}
+    for i = 1, 9 do
+        m3[i] = m1[i] + (m2[i] - m1[i]) * a
+    end
+    local r = Vector3.new(m3[1], m3[4], m3[7])
+    if r.Magnitude > 0 then r = r.Unit else r = Vector3.xAxis end
+    local u = Vector3.new(m3[2], m3[5], m3[8])
+    if u.Magnitude > 0 then u = u.Unit else u = Vector3.yAxis end
+    local f = -Vector3.new(m3[3], m3[6], m3[9])
+    if f.Magnitude > 0 then f = f.Unit else f = -Vector3.zAxis end
+    return setmetatable({
+        Position = p, X = p.X, Y = p.Y, Z = p.Z,
+        RightVector = r, UpVector = u, LookVector = f,
+        _m = { r.X, u.X, -f.X, r.Y, u.Y, -f.Y, r.Z, u.Z, -f.Z }
+    }, CFrame)
 end
 
 function CFrameMethods:ToWorldSpace(cf) return self * cf end
 function CFrameMethods:ToObjectSpace(cf) return self:Inverse() * cf end
-function CFrameMethods:PointToWorldSpace(p) return (self * CFrame.new(p)).Position end
-function CFrameMethods:PointToObjectSpace(p) return (self:Inverse() * CFrame.new(p)).Position end
+function CFrameMethods:PointToWorldSpace(p) return self * p end
+function CFrameMethods:PointToObjectSpace(p) return self:Inverse() * p end
+function CFrameMethods:VectorToWorldSpace(v)
+    local m = self._m or { 1, 0, 0, 0, 1, 0, 0, 0, 1 }
+    return Vector3.new(
+        m[1] * v.X + m[2] * v.Y + m[3] * v.Z,
+        m[4] * v.X + m[5] * v.Y + m[6] * v.Z,
+        m[7] * v.X + m[8] * v.Y + m[9] * v.Z
+    )
+end
+function CFrameMethods:VectorToObjectSpace(v)
+    return self:Inverse():VectorToWorldSpace(v)
+end
 function CFrameMethods:GetComponents()
     local m = self._m or { 1, 0, 0, 0, 1, 0, 0, 0, 1 }
     return self.X, self.Y, self.Z, m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9]
@@ -394,32 +529,80 @@ end
 
 CFrame.__index = function(self, key)
     if key == "p" then return self.Position end
+    if key == "Rotation" then
+        return setmetatable({
+            Position = Vector3.zero, X = 0, Y = 0, Z = 0,
+            LookVector = self.LookVector, RightVector = self.RightVector, UpVector = self.UpVector,
+            _m = self._m
+        }, CFrame)
+    end
     return CFrameMethods[key]
 end
+
 function CFrame.__mul(a, b)
-    if typeof(b) == "Vector3" then
+    if typeof(b) == "Vector3" or (type(b) == "table" and b.X and not b.LookVector) then
         local m = a._m or { 1, 0, 0, 0, 1, 0, 0, 0, 1 }
         return Vector3.new(
             a.X + m[1] * b.X + m[2] * b.Y + m[3] * b.Z,
             a.Y + m[4] * b.X + m[5] * b.Y + m[6] * b.Z,
             a.Z + m[7] * b.X + m[8] * b.Y + m[9] * b.Z
         )
-    elseif typeof(b) == "CFrame" then
-        local pos = a * b.Position
-        return CFrame.new(pos.X, pos.Y, pos.Z)
+    elseif typeof(b) == "CFrame" or (type(b) == "table" and b.LookVector) then
+        local m1 = a._m or { 1, 0, 0, 0, 1, 0, 0, 0, 1 }
+        local m2 = b._m or { 1, 0, 0, 0, 1, 0, 0, 0, 1 }
+        local m3 = {
+            m1[1]*m2[1] + m1[2]*m2[4] + m1[3]*m2[7],
+            m1[1]*m2[2] + m1[2]*m2[5] + m1[3]*m2[8],
+            m1[1]*m2[3] + m1[2]*m2[6] + m1[3]*m2[9],
+            m1[4]*m2[1] + m1[5]*m2[4] + m1[6]*m2[7],
+            m1[4]*m2[2] + m1[5]*m2[5] + m1[6]*m2[8],
+            m1[4]*m2[3] + m1[5]*m2[6] + m1[6]*m2[9],
+            m1[7]*m2[1] + m1[8]*m2[4] + m1[9]*m2[7],
+            m1[7]*m2[2] + m1[8]*m2[5] + m1[9]*m2[8],
+            m1[7]*m2[3] + m1[8]*m2[6] + m1[9]*m2[9]
+        }
+        local newPos = a * b.Position
+        return setmetatable({
+            Position = newPos, X = newPos.X, Y = newPos.Y, Z = newPos.Z,
+            RightVector = Vector3.new(m3[1], m3[4], m3[7]),
+            UpVector = Vector3.new(m3[2], m3[5], m3[8]),
+            LookVector = Vector3.new(-m3[3], -m3[6], -m3[9]),
+            _m = m3
+        }, CFrame)
     end
     return a
 end
+
 function CFrame.__add(a, b)
-    if typeof(b) == "Vector3" then return CFrame.new(a.Position + b) end
+    if typeof(b) == "Vector3" or (type(b) == "table" and b.X and not b.LookVector) then
+        local newPos = a.Position + b
+        return setmetatable({
+            Position = newPos, X = newPos.X, Y = newPos.Y, Z = newPos.Z,
+            LookVector = a.LookVector, RightVector = a.RightVector, UpVector = a.UpVector,
+            _m = a._m
+        }, CFrame)
+    end
     return a
 end
+
 function CFrame.__sub(a, b)
-    if typeof(b) == "Vector3" then return CFrame.new(a.Position - b) end
+    if typeof(b) == "Vector3" or (type(b) == "table" and b.X and not b.LookVector) then
+        local newPos = a.Position - b
+        return setmetatable({
+            Position = newPos, X = newPos.X, Y = newPos.Y, Z = newPos.Z,
+            LookVector = a.LookVector, RightVector = a.RightVector, UpVector = a.UpVector,
+            _m = a._m
+        }, CFrame)
+    end
     return a
 end
+
 function CFrame:__tostring()
-    return string.format("%g, %g, %g, 1, 0, 0, 0, 1, 0, 0, 0, 1", self.X, self.Y, self.Z)
+    local m = self._m or { 1, 0, 0, 0, 1, 0, 0, 0, 1 }
+    return string.format("%g, %g, %g, %g, %g, %g, %g, %g, %g, %g, %g, %g",
+        self.X, self.Y, self.Z,
+        m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9]
+    )
 end
 
 -- Color3
@@ -755,6 +938,9 @@ local CLASS_HIERARCHY = {
 
 local InstanceMethods = {}
 local __instance_id = 0
+local __TAG_MAP__ = {}
+local __TAG_ADDED_SIGNALS__ = {}
+local __TAG_REMOVED_SIGNALS__ = {}
 
 local function createInstance(className, parent)
     __instance_id += 1
@@ -770,14 +956,20 @@ local function createInstance(className, parent)
             Archivable = true,
         },
         _attributes = {},
+        _tags = {},
         _events = {
             Changed = Signal.new("Changed"),
             ChildAdded = Signal.new("ChildAdded"),
             ChildRemoved = Signal.new("ChildRemoved"),
+            DescendantAdded = Signal.new("DescendantAdded"),
+            DescendantRemoving = Signal.new("DescendantRemoving"),
+            AncestryChanged = Signal.new("AncestryChanged"),
             Destroying = Signal.new("Destroying"),
             AttributeChanged = Signal.new("AttributeChanged"),
         },
-        _propSignals = {}
+        _propSignals = {},
+        _attrSignals = {},
+        _destroyed = false,
     }
 
     -- Set class-specific properties and events
@@ -812,6 +1004,8 @@ local function createInstance(className, parent)
         obj._events.Running = Signal.new("Running")
         obj._events.Jumping = Signal.new("Jumping")
         obj._events.FreeFalling = Signal.new("FreeFalling")
+        obj._events.MoveToFinished = Signal.new("MoveToFinished")
+        obj._events.Seated = Signal.new("Seated")
     elseif className == "Tool" then
         obj._props.RequiresHandle = true
         obj._props.CanBeDropped = true
@@ -893,6 +1087,9 @@ local function createInstance(className, parent)
         __index = function(self, key)
             local props = rawget(self, "_props")
             if props[key] ~= nil then return props[key] end
+            if key == "Orientation" or key == "Rotation" then
+                return props.Orientation or Vector3.zero
+            end
             local events = rawget(self, "_events")
             if events and events[key] then return events[key] end
             if InstanceMethods[key] then return InstanceMethods[key] end
@@ -909,9 +1106,24 @@ local function createInstance(className, parent)
         __newindex = function(self, key, value)
             local props = rawget(self, "_props")
             if key == "Parent" then
+                if rawget(self, "_destroyed") and value ~= nil then
+                    error("The Parent property of " .. tostring(props.ClassName or "Instance") .. " is locked, current parent: NULL, new parent: " .. tostring(value))
+                end
                 local oldParent = props.Parent
                 if oldParent == value then return end
                 if oldParent then
+                    -- Fire DescendantRemoving up ancestor chain
+                    local curr = oldParent
+                    while curr do
+                        if curr.DescendantRemoving then
+                            curr.DescendantRemoving:Fire(self)
+                            for _, desc in ipairs(self:GetDescendants()) do
+                                curr.DescendantRemoving:Fire(desc)
+                            end
+                        end
+                        curr = curr.Parent
+                    end
+
                     local oldKids = rawget(oldParent, "_children")
                     if oldKids then
                         for idx, kid in ipairs(oldKids) do
@@ -923,28 +1135,59 @@ local function createInstance(className, parent)
                         oldParent.ChildRemoved:Fire(self)
                     end
                 end
+
                 props.Parent = value
+
                 if value then
                     local newKids = rawget(value, "_children")
                     if newKids then
                         table.insert(newKids, self)
                         value.ChildAdded:Fire(self)
                     end
+
+                    -- Fire DescendantAdded up ancestor chain
+                    local curr = value
+                    while curr do
+                        if curr.DescendantAdded then
+                            curr.DescendantAdded:Fire(self)
+                            for _, desc in ipairs(self:GetDescendants()) do
+                                curr.DescendantAdded:Fire(desc)
+                            end
+                        end
+                        curr = curr.Parent
+                    end
                 end
+
                 self.Changed:Fire("Parent")
+                self.AncestryChanged:Fire(self, value)
+                for _, desc in ipairs(self:GetDescendants()) do
+                    desc.AncestryChanged:Fire(desc, value)
+                end
                 return
             end
 
-            -- Coordinate math syncing: Position & CFrame
-            if key == "Position" and typeof(value) == "Vector3" then
+            -- Coordinate math syncing: Position & CFrame & Orientation
+            if key == "Position" and (typeof(value) == "Vector3" or (type(value) == "table" and value.X)) then
                 props.Position = value
-                props.CFrame = CFrame.new(value)
-            elseif key == "CFrame" and typeof(value) == "CFrame" then
+                local rot = props.CFrame or CFrame.identity
+                props.CFrame = setmetatable({
+                    Position = value, X = value.X, Y = value.Y, Z = value.Z,
+                    LookVector = rot.LookVector, RightVector = rot.RightVector, UpVector = rot.UpVector,
+                    _m = rot._m
+                }, CFrame)
+            elseif key == "CFrame" and (typeof(value) == "CFrame" or (type(value) == "table" and value.LookVector)) then
                 props.CFrame = value
                 props.Position = value.Position
-            elseif key == "Color" and typeof(value) == "Color3" then
+            elseif key == "Orientation" and (typeof(value) == "Vector3" or (type(value) == "table" and value.X)) then
+                props.Orientation = value
+                local pos = props.Position or Vector3.zero
+                props.CFrame = CFrame.new(pos) * CFrame.Angles(math.rad(value.X), math.rad(value.Y), math.rad(value.Z))
+            elseif key == "Color" and (typeof(value) == "Color3" or (type(value) == "table" and value.R)) then
                 props.Color = value
                 props.BrickColor = BrickColor.new(value)
+            elseif key == "BrickColor" and (typeof(value) == "BrickColor" or (type(value) == "table" and value.Color)) then
+                props.BrickColor = value
+                props.Color = value.Color
             else
                 props[key] = value
             end
@@ -1012,6 +1255,33 @@ function InstanceMethods:FindFirstChildWhichIsA(className)
     return nil
 end
 
+function InstanceMethods:FindFirstAncestor(name)
+    local curr = self.Parent
+    while curr do
+        if curr.Name == name then return curr end
+        curr = curr.Parent
+    end
+    return nil
+end
+
+function InstanceMethods:FindFirstAncestorOfClass(className)
+    local curr = self.Parent
+    while curr do
+        if curr.ClassName == className then return curr end
+        curr = curr.Parent
+    end
+    return nil
+end
+
+function InstanceMethods:FindFirstAncestorWhichIsA(className)
+    local curr = self.Parent
+    while curr do
+        if curr:IsA(className) then return curr end
+        curr = curr.Parent
+    end
+    return nil
+end
+
 function InstanceMethods:WaitForChild(name, timeout)
     local found = self:FindFirstChild(name)
     if found then return found end
@@ -1025,6 +1295,7 @@ function InstanceMethods:WaitForChild(name, timeout)
 end
 
 function InstanceMethods:IsA(className)
+    if className == "Instance" then return true end
     if self.ClassName == className then return true end
     local h = CLASS_HIERARCHY[self.ClassName]
     if h then
@@ -1077,12 +1348,50 @@ function InstanceMethods:Clone()
 end
 
 function InstanceMethods:Destroy()
-    self.Destroying:Fire()
+    if rawget(self, "_destroyed") then return end
+
+    -- 1. Fire Destroying signal
+    local events = rawget(self, "_events")
+    if events and events.Destroying then
+        events.Destroying:Fire()
+    end
+
+    -- 2. Recursively destroy all children
     for _, child in ipairs(self:GetChildren()) do
         child:Destroy()
     end
+
+    -- 3. Unparent and clear children
     self.Parent = nil
     rawset(self, "_children", {})
+
+    -- 4. Mark destroyed and lock parent
+    rawset(self, "_destroyed", true)
+
+    -- 5. Disconnect all signal connections on instance
+    if events then
+        for _, sig in pairs(events) do
+            if type(sig) == "table" and sig.DisconnectAll then
+                sig:DisconnectAll()
+            end
+        end
+    end
+    local propSigs = rawget(self, "_propSignals")
+    if propSigs then
+        for _, sig in pairs(propSigs) do
+            if type(sig) == "table" and sig.DisconnectAll then
+                sig:DisconnectAll()
+            end
+        end
+    end
+    local attrSigs = rawget(self, "_attrSignals")
+    if attrSigs then
+        for _, sig in pairs(attrSigs) do
+            if type(sig) == "table" and sig.DisconnectAll then
+                sig:DisconnectAll()
+            end
+        end
+    end
 end
 
 function InstanceMethods:ClearAllChildren()
@@ -1094,6 +1403,10 @@ end
 function InstanceMethods:SetAttribute(name, val)
     rawget(self, "_attributes")[name] = val
     self.AttributeChanged:Fire(name)
+    local sigs = rawget(self, "_attrSignals")
+    if sigs and sigs[name] then
+        sigs[name]:Fire(val)
+    end
 end
 
 function InstanceMethods:GetAttribute(name)
@@ -1106,6 +1419,18 @@ function InstanceMethods:GetAttributes()
     return copy
 end
 
+function InstanceMethods:GetAttributeChangedSignal(attributeName)
+    local sigs = rawget(self, "_attrSignals")
+    if not sigs then
+        sigs = {}
+        rawset(self, "_attrSignals", sigs)
+    end
+    if not sigs[attributeName] then
+        sigs[attributeName] = Signal.new("AttributeChanged_" .. attributeName)
+    end
+    return sigs[attributeName]
+end
+
 function InstanceMethods:GetPropertyChangedSignal(propertyName)
     local sigs = rawget(self, "_propSignals")
     if not sigs[propertyName] then
@@ -1114,19 +1439,279 @@ function InstanceMethods:GetPropertyChangedSignal(propertyName)
     return sigs[propertyName]
 end
 
--- Model methods
+-- Tag methods on Instance
+function InstanceMethods:AddTag(tag)
+    if not tag then return end
+    local tags = rawget(self, "_tags")
+    if not tags then
+        tags = {}
+        rawset(self, "_tags", tags)
+    end
+    if not tags[tag] then
+        tags[tag] = true
+        if __TAG_MAP__ then
+            if not __TAG_MAP__[tag] then __TAG_MAP__[tag] = {} end
+            if not table.find(__TAG_MAP__[tag], self) then
+                table.insert(__TAG_MAP__[tag], self)
+            end
+            if __TAG_ADDED_SIGNALS__ and __TAG_ADDED_SIGNALS__[tag] then
+                __TAG_ADDED_SIGNALS__[tag]:Fire(self)
+            end
+        end
+    end
+end
+
+function InstanceMethods:RemoveTag(tag)
+    if not tag then return end
+    local tags = rawget(self, "_tags")
+    if tags and tags[tag] then
+        tags[tag] = nil
+        if __TAG_MAP__ and __TAG_MAP__[tag] then
+            local idx = table.find(__TAG_MAP__[tag], self)
+            if idx then table.remove(__TAG_MAP__[tag], idx) end
+            if __TAG_REMOVED_SIGNALS__ and __TAG_REMOVED_SIGNALS__[tag] then
+                __TAG_REMOVED_SIGNALS__[tag]:Fire(self)
+            end
+        end
+    end
+end
+
+function InstanceMethods:HasTag(tag)
+    if not tag then return false end
+    local tags = rawget(self, "_tags")
+    return if tags and tags[tag] then true else false
+end
+
+function InstanceMethods:GetTags()
+    local tags = rawget(self, "_tags")
+    local list = {}
+    if tags then
+        for t in pairs(tags) do
+            table.insert(list, t)
+        end
+    end
+    return list
+end
+
+function InstanceMethods:GetDebugId(length)
+    return string.format("%d_%d", rawget(self, "_id") or 0, length or 1)
+end
+
+function InstanceMethods:GetActor()
+    return nil
+end
+
+-- Pivot & Spatial Positioning (Model & BasePart)
 function InstanceMethods:GetPivot()
-    if self.PrimaryPart then return self.PrimaryPart.CFrame end
-    return CFrame.new(0, 0, 0)
+    if self:IsA("BasePart") then
+        return self.CFrame or CFrame.identity
+    elseif self:IsA("Model") then
+        if self.PrimaryPart then return self.PrimaryPart.CFrame end
+        local cf, _ = self:GetBoundingBox()
+        return cf
+    end
+    return CFrame.identity
 end
+
 function InstanceMethods:PivotTo(targetCFrame)
-    if self.PrimaryPart then self.PrimaryPart.CFrame = targetCFrame end
+    if not targetCFrame then return end
+    if self:IsA("BasePart") then
+        self.CFrame = targetCFrame
+    elseif self:IsA("Model") then
+        local currentPivot = self:GetPivot()
+        local delta = targetCFrame * currentPivot:Inverse()
+        for _, desc in ipairs(self:GetDescendants()) do
+            if desc:IsA("BasePart") then
+                desc.CFrame = delta * desc.CFrame
+            end
+        end
+        if self.PrimaryPart then
+            self.PrimaryPart.CFrame = targetCFrame
+        end
+    end
 end
+
 function InstanceMethods:SetPrimaryPartCFrame(cf)
     self:PivotTo(cf)
 end
 
--- Humanoid methods
+function InstanceMethods:GetPrimaryPartCFrame()
+    return self:GetPivot()
+end
+
+function InstanceMethods:TranslateBy(delta)
+    if typeof(delta) == "Vector3" then
+        local current = self:GetPivot()
+        self:PivotTo(CFrame.new(delta) * current)
+    end
+end
+
+function InstanceMethods:GetBoundingBox()
+    local minX, minY, minZ = math.huge, math.huge, math.huge
+    local maxX, maxY, maxZ = -math.huge, -math.huge, -math.huge
+    local found = false
+    local parts = {}
+    if self:IsA("BasePart") then
+        table.insert(parts, self)
+    else
+        for _, desc in ipairs(self:GetDescendants()) do
+            if desc:IsA("BasePart") then
+                table.insert(parts, desc)
+            end
+        end
+    end
+    for _, p in ipairs(parts) do
+        found = true
+        local pos = p.Position or Vector3.zero
+        local sz = p.Size or Vector3.new(4, 1, 2)
+        local half = sz * 0.5
+        minX = math.min(minX, pos.X - half.X)
+        minY = math.min(minY, pos.Y - half.Y)
+        minZ = math.min(minZ, pos.Z - half.Z)
+        maxX = math.max(maxX, pos.X + half.X)
+        maxY = math.max(maxY, pos.Y + half.Y)
+        maxZ = math.max(maxZ, pos.Z + half.Z)
+    end
+    if not found then
+        return CFrame.identity, Vector3.zero
+    end
+    local center = Vector3.new((minX + maxX) * 0.5, (minY + maxY) * 0.5, (minZ + maxZ) * 0.5)
+    local size = Vector3.new(maxX - minX, maxY - minY, maxZ - minZ)
+    return CFrame.new(center), size
+end
+
+function InstanceMethods:GetExtentsSize()
+    local _, size = self:GetBoundingBox()
+    return size
+end
+
+function InstanceMethods:MoveTo(targetPosition)
+    if typeof(targetPosition) ~= "Vector3" and (type(targetPosition) ~= "table" or not targetPosition.X) then return end
+    if self:IsA("Model") then
+        local _, size = self:GetBoundingBox()
+        local targetCF = CFrame.new(targetPosition.X, targetPosition.Y + size.Y * 0.5, targetPosition.Z)
+        self:PivotTo(targetCF)
+    elseif self.ClassName == "Humanoid" then
+        self.Running:Fire(self.WalkSpeed or 16)
+        if self.MoveToFinished then
+            task.spawn(function()
+                task.wait(0.05)
+                self.MoveToFinished:Fire(true)
+            end)
+        end
+    elseif self:IsA("BasePart") then
+        self.Position = targetPosition
+    end
+end
+
+function InstanceMethods:ScaleTo(scaleFactor)
+    if scaleFactor <= 0 then error("Scale factor must be positive") end
+    local currentScale = rawget(self, "_modelScale") or 1
+    local ratio = scaleFactor / currentScale
+    rawset(self, "_modelScale", scaleFactor)
+    local pivot = self:GetPivot()
+    for _, desc in ipairs(self:GetDescendants()) do
+        if desc:IsA("BasePart") then
+            desc.Size = desc.Size * ratio
+            local offset = desc.Position - pivot.Position
+            desc.Position = pivot.Position + offset * ratio
+        end
+    end
+end
+
+function InstanceMethods:GetScale()
+    return rawget(self, "_modelScale") or 1
+end
+
+-- BasePart Physics & Joints
+function InstanceMethods:GetMass()
+    if self:IsA("BasePart") then
+        local sz = self.Size or Vector3.new(4, 1, 2)
+        return sz.X * sz.Y * sz.Z * 0.7
+    end
+    local total = 0
+    for _, desc in ipairs(self:GetDescendants()) do
+        if desc:IsA("BasePart") then
+            total = total + desc:GetMass()
+        end
+    end
+    return total
+end
+
+function InstanceMethods:GetRootPart()
+    if self:IsA("BasePart") then return self end
+    if self:IsA("Model") and self.PrimaryPart then return self.PrimaryPart end
+    return nil
+end
+
+function InstanceMethods:BreakJoints()
+    for _, desc in ipairs(self:GetDescendants()) do
+        if desc:IsA("JointInstance") or desc:IsA("Weld") or desc:IsA("WeldConstraint") or desc:IsA("Motor6D") then
+            desc:Destroy()
+        end
+    end
+    if self:IsA("Model") then
+        local hum = self:FindFirstChildOfClass("Humanoid")
+        if hum then hum.Health = 0 end
+    end
+    if self:IsA("JointInstance") or self:IsA("Weld") or self:IsA("WeldConstraint") or self:IsA("Motor6D") then
+        self:Destroy()
+    end
+end
+
+function InstanceMethods:MakeJoints()
+    -- Simulated joints
+end
+
+function InstanceMethods:ApplyImpulse(impulse)
+    if self:IsA("BasePart") and typeof(impulse) == "Vector3" then
+        local mass = self:GetMass()
+        local vel = self.AssemblyLinearVelocity or Vector3.zero
+        self.AssemblyLinearVelocity = vel + (impulse / math.max(0.001, mass))
+        self.Velocity = self.AssemblyLinearVelocity
+    end
+end
+
+function InstanceMethods:ApplyAngularImpulse(impulse)
+    if self:IsA("BasePart") and typeof(impulse) == "Vector3" then
+        local mass = self:GetMass()
+        local avel = self.AssemblyAngularVelocity or Vector3.zero
+        self.AssemblyAngularVelocity = avel + (impulse / math.max(0.001, mass))
+        self.RotVelocity = self.AssemblyAngularVelocity
+    end
+end
+
+function InstanceMethods:ApplyImpulseAtPosition(impulse, pos)
+    self:ApplyImpulse(impulse)
+end
+
+function InstanceMethods:CanCollideWith(otherPart)
+    return (self.CanCollide == true) and (otherPart and otherPart.CanCollide == true)
+end
+
+function InstanceMethods:GetConnectedParts(recursive)
+    local parts = {}
+    if self:IsA("BasePart") then table.insert(parts, self) end
+    return parts
+end
+
+function InstanceMethods:GetJoints()
+    local joints = {}
+    for _, desc in ipairs(self:GetDescendants()) do
+        if desc:IsA("JointInstance") or desc:IsA("Weld") or desc:IsA("WeldConstraint") or desc:IsA("Motor6D") then
+            table.insert(joints, desc)
+        end
+    end
+    return joints
+end
+
+function InstanceMethods:Resize(normalId, amount)
+    if self:IsA("BasePart") then
+        self.Size = self.Size + Vector3.new(amount, amount, amount)
+    end
+end
+
+-- Humanoid Methods
 function InstanceMethods:TakeDamage(amount)
     if self.ClassName == "Humanoid" then
         local cur = self.Health or 100
@@ -1138,36 +1723,177 @@ function InstanceMethods:TakeDamage(amount)
         end
     end
 end
+
 function InstanceMethods:ChangeState(state)
     if self.ClassName == "Humanoid" then
         self.StateChanged:Fire(state, state)
     end
 end
-function InstanceMethods:MoveTo(targetPosition)
-    if self.ClassName == "Humanoid" then
+
+function InstanceMethods:GetState()
+    return Enum.HumanoidStateType and Enum.HumanoidStateType.Running or "Running"
+end
+
+function InstanceMethods:SetStateEnabled(state, enabled) end
+function InstanceMethods:GetStateEnabled(state) return true end
+
+function InstanceMethods:Move(direction, relativeToCamera)
+    if self.ClassName == "Humanoid" and typeof(direction) == "Vector3" then
         self.Running:Fire(self.WalkSpeed or 16)
     end
 end
 
--- Sound methods
+function InstanceMethods:EquipTool(tool)
+    if self.ClassName == "Humanoid" and tool and tool:IsA("Tool") then
+        local char = self.Parent
+        if char then tool.Parent = char end
+    end
+end
+
+function InstanceMethods:UnequipTools()
+    if self.ClassName == "Humanoid" then
+        local char = self.Parent
+        local player = game and game.Players and game.Players.LocalPlayer
+        if char and player and player.Backpack then
+            for _, item in ipairs(char:GetChildren()) do
+                if item:IsA("Tool") then
+                    item.Parent = player.Backpack
+                end
+            end
+        end
+    end
+end
+
+function InstanceMethods:LoadAnimation(animation)
+    local track = {
+        Animation = animation,
+        Length = 1.0,
+        TimePosition = 0,
+        Speed = 1,
+        WeightCurrent = 1,
+        WeightTarget = 1,
+        Looped = false,
+        IsPlaying = false,
+        Priority = Enum.AnimationPriority and Enum.AnimationPriority.Action or 3,
+        Stopped = Signal.new("Stopped"),
+        KeyframeReached = Signal.new("KeyframeReached"),
+        DidLoop = Signal.new("DidLoop"),
+    }
+    function track:Play(fadeTime, weight, speed)
+        self.IsPlaying = true
+        self.Speed = speed or 1
+        self.WeightCurrent = weight or 1
+        print("[AnimationTrack] Playing animation: " .. (animation and animation.Name or "Animation"))
+    end
+    function track:Stop(fadeTime)
+        if self.IsPlaying then
+            self.IsPlaying = false
+            self.Stopped:Fire()
+        end
+    end
+    function track:Pause() self.IsPlaying = false end
+    function track:Resume() self.IsPlaying = true end
+    function track:AdjustSpeed(speed) self.Speed = speed or 1 end
+    function track:AdjustWeight(weight, fadeTime) self.WeightCurrent = weight or 1 end
+    function track:Destroy() self:Stop() end
+    return track
+end
+
+function InstanceMethods:AddAccessory(accessory)
+    if self.ClassName == "Humanoid" and accessory then
+        local char = self.Parent
+        if char then accessory.Parent = char end
+    end
+end
+
+function InstanceMethods:ApplyDescription(desc) end
+function InstanceMethods:GetAppliedDescription()
+    return createInstance("HumanoidDescription", nil)
+end
+
+-- Sound Methods
 function InstanceMethods:Play()
     if self.ClassName == "Sound" then
         self.IsPlaying = true
+        self.Playing = true
         print("[Sound] Playing sound: " .. self.Name)
     end
 end
+
 function InstanceMethods:Stop()
     if self.ClassName == "Sound" then
         self.IsPlaying = false
+        self.Playing = false
         self.Ended:Fire()
     end
 end
-function InstanceMethods:Pause() if self.ClassName == "Sound" then self.IsPlaying = false end end
-function InstanceMethods:Resume() if self.ClassName == "Sound" then self.IsPlaying = true end end
 
--- Tool methods
+function InstanceMethods:Pause()
+    if self.ClassName == "Sound" then
+        self.IsPlaying = false
+        self.Playing = false
+    end
+end
+
+function InstanceMethods:Resume()
+    if self.ClassName == "Sound" then
+        self.IsPlaying = true
+        self.Playing = true
+    end
+end
+
+-- Tool Methods
 function InstanceMethods:Activate() self.Activated:Fire() end
 function InstanceMethods:Deactivate() self.Deactivated:Fire() end
+
+-- GuiObject Tweening Methods
+function InstanceMethods:TweenPosition(endPos, easingDirection, easingStyle, duration, override, callback)
+    if self:IsA("GuiObject") and game and game.TweenService then
+        local dur = duration or 0.5
+        local style = easingStyle or Enum.EasingStyle.Quad
+        local dir = easingDirection or Enum.EasingDirection.Out
+        local info = TweenInfo.new(dur, style, dir)
+        local tw = game.TweenService:Create(self, info, { Position = endPos })
+        tw.Completed:Connect(function(state)
+            if callback then callback(state) end
+        end)
+        tw:Play()
+        return true
+    end
+    return false
+end
+
+function InstanceMethods:TweenSize(endSize, easingDirection, easingStyle, duration, override, callback)
+    if self:IsA("GuiObject") and game and game.TweenService then
+        local dur = duration or 0.5
+        local style = easingStyle or Enum.EasingStyle.Quad
+        local dir = easingDirection or Enum.EasingDirection.Out
+        local info = TweenInfo.new(dur, style, dir)
+        local tw = game.TweenService:Create(self, info, { Size = endSize })
+        tw.Completed:Connect(function(state)
+            if callback then callback(state) end
+        end)
+        tw:Play()
+        return true
+    end
+    return false
+end
+
+function InstanceMethods:TweenSizeAndPosition(endSize, endPos, easingDirection, easingStyle, duration, override, callback)
+    if self:IsA("GuiObject") and game and game.TweenService then
+        local dur = duration or 0.5
+        local style = easingStyle or Enum.EasingStyle.Quad
+        local dir = easingDirection or Enum.EasingDirection.Out
+        local info = TweenInfo.new(dur, style, dir)
+        local tw = game.TweenService:Create(self, info, { Size = endSize, Position = endPos })
+        tw.Completed:Connect(function(state)
+            if callback then callback(state) end
+        end)
+        tw:Play()
+        return true
+    end
+    return false
+end
 
 -- RemoteEvent & RemoteFunction
 function InstanceMethods:FireServer(...)
@@ -1195,12 +1921,110 @@ function InstanceMethods:Invoke(...)
     return nil
 end
 
--- Instance.new constructor
+-- Player Methods
+function InstanceMethods:Kick(msg)
+    if self:IsA("Player") then
+        print(string.format("[Player:Kick] Player %s was kicked: %s", self.Name, tostring(msg or "No reason specified")))
+    end
+end
+
+function InstanceMethods:LoadCharacter()
+    if self:IsA("Player") then
+        print(string.format("[Player:LoadCharacter] Spawning character for %s", self.Name))
+    end
+end
+
+-- Lowercase & Deprecated Aliases for all Instance Methods
+InstanceMethods.destroy = InstanceMethods.Destroy
+InstanceMethods.Remove = InstanceMethods.Destroy
+InstanceMethods.remove = InstanceMethods.Destroy
+InstanceMethods.clone = InstanceMethods.Clone
+InstanceMethods.clearAllChildren = InstanceMethods.ClearAllChildren
+InstanceMethods.getChildren = InstanceMethods.GetChildren
+InstanceMethods.getDescendants = InstanceMethods.GetDescendants
+InstanceMethods.findFirstChild = InstanceMethods.FindFirstChild
+InstanceMethods.findFirstChildOfClass = InstanceMethods.FindFirstChildOfClass
+InstanceMethods.findFirstChildWhichIsA = InstanceMethods.FindFirstChildWhichIsA
+InstanceMethods.findFirstAncestor = InstanceMethods.FindFirstAncestor
+InstanceMethods.findFirstAncestorOfClass = InstanceMethods.FindFirstAncestorOfClass
+InstanceMethods.findFirstAncestorWhichIsA = InstanceMethods.FindFirstAncestorWhichIsA
+InstanceMethods.waitForChild = InstanceMethods.WaitForChild
+InstanceMethods.isA = InstanceMethods.IsA
+InstanceMethods.isDescendantOf = InstanceMethods.IsDescendantOf
+InstanceMethods.isAncestorOf = InstanceMethods.IsAncestorOf
+InstanceMethods.getFullName = InstanceMethods.GetFullName
+InstanceMethods.getPropertyChangedSignal = InstanceMethods.GetPropertyChangedSignal
+InstanceMethods.setAttribute = InstanceMethods.SetAttribute
+InstanceMethods.getAttribute = InstanceMethods.GetAttribute
+InstanceMethods.getAttributes = InstanceMethods.GetAttributes
+InstanceMethods.getAttributeChangedSignal = InstanceMethods.GetAttributeChangedSignal
+InstanceMethods.addTag = InstanceMethods.AddTag
+InstanceMethods.removeTag = InstanceMethods.RemoveTag
+InstanceMethods.hasTag = InstanceMethods.HasTag
+InstanceMethods.getTags = InstanceMethods.GetTags
+InstanceMethods.getPivot = InstanceMethods.GetPivot
+InstanceMethods.pivotTo = InstanceMethods.PivotTo
+InstanceMethods.moveTo = InstanceMethods.MoveTo
+InstanceMethods.translateBy = InstanceMethods.TranslateBy
+InstanceMethods.getBoundingBox = InstanceMethods.GetBoundingBox
+InstanceMethods.getExtentsSize = InstanceMethods.GetExtentsSize
+InstanceMethods.scaleTo = InstanceMethods.ScaleTo
+InstanceMethods.getScale = InstanceMethods.GetScale
+InstanceMethods.getMass = InstanceMethods.GetMass
+InstanceMethods.getRootPart = InstanceMethods.GetRootPart
+InstanceMethods.breakJoints = InstanceMethods.BreakJoints
+InstanceMethods.makeJoints = InstanceMethods.MakeJoints
+InstanceMethods.applyImpulse = InstanceMethods.ApplyImpulse
+InstanceMethods.applyAngularImpulse = InstanceMethods.ApplyAngularImpulse
+InstanceMethods.applyImpulseAtPosition = InstanceMethods.ApplyImpulseAtPosition
+InstanceMethods.canCollideWith = InstanceMethods.CanCollideWith
+InstanceMethods.getConnectedParts = InstanceMethods.GetConnectedParts
+InstanceMethods.getJoints = InstanceMethods.GetJoints
+InstanceMethods.resize = InstanceMethods.Resize
+InstanceMethods.takeDamage = InstanceMethods.TakeDamage
+InstanceMethods.changeState = InstanceMethods.ChangeState
+InstanceMethods.getState = InstanceMethods.GetState
+InstanceMethods.setStateEnabled = InstanceMethods.SetStateEnabled
+InstanceMethods.getStateEnabled = InstanceMethods.GetStateEnabled
+InstanceMethods.equipTool = InstanceMethods.EquipTool
+InstanceMethods.unequipTools = InstanceMethods.UnequipTools
+InstanceMethods.loadAnimation = InstanceMethods.LoadAnimation
+InstanceMethods.addAccessory = InstanceMethods.AddAccessory
+InstanceMethods.play = InstanceMethods.Play
+InstanceMethods.stop = InstanceMethods.Stop
+InstanceMethods.pause = InstanceMethods.Pause
+InstanceMethods.resume = InstanceMethods.Resume
+InstanceMethods.activate = InstanceMethods.Activate
+InstanceMethods.deactivate = InstanceMethods.Deactivate
+InstanceMethods.tweenPosition = InstanceMethods.TweenPosition
+InstanceMethods.tweenSize = InstanceMethods.TweenSize
+InstanceMethods.tweenSizeAndPosition = InstanceMethods.TweenSizeAndPosition
+InstanceMethods.kick = InstanceMethods.Kick
+InstanceMethods.loadCharacter = InstanceMethods.LoadCharacter
+
+-- Instance.new constructors & Global Helpers
 Instance = {
     new = function(className, parent)
         return createInstance(className, parent)
     end
 }
+Instance.New = Instance.new
+instance = Instance
+
+function Destroy(inst)
+    if inst and type(inst) == "table" and inst.Destroy then
+        inst:Destroy()
+    end
+end
+destroy = Destroy
+
+function Clone(inst)
+    if inst and type(inst) == "table" and inst.Clone then
+        return inst:Clone()
+    end
+    return nil
+end
+clone = Clone
 
 -- =========================================================================
 -- 5. DataModel ("game") and All Major Core Services
@@ -1863,9 +2687,6 @@ end
 -- =========================================================================
 local CollectionService = createInstance("CollectionService", game)
 CollectionService.Name = "CollectionService"
-local __TAG_MAP__ = {}
-local __TAG_ADDED_SIGNALS__ = {}
-local __TAG_REMOVED_SIGNALS__ = {}
 
 function CollectionService:AddTag(inst, tag)
     if not inst or not tag then return end
@@ -2112,6 +2933,89 @@ function workspace:Raycast(origin, direction, raycastParams)
     return nil
 end
 
+function workspace:FindPartOnRay(ray, ignoreDescendant)
+    local params = RaycastParams.new()
+    if ignoreDescendant then
+        params.FilterDescendantsInstances = { ignoreDescendant }
+    end
+    local res = self:Raycast(ray.Origin, ray.Direction, params)
+    if res then
+        return res.Instance, res.Position, res.Normal, res.Material
+    end
+    return nil, ray.Origin + ray.Direction, Vector3.new(0, 1, 0), Enum.Material.Plastic
+end
+
+function workspace:FindPartOnRayWithIgnoreList(ray, ignoreList)
+    local params = RaycastParams.new()
+    if ignoreList then
+        params.FilterDescendantsInstances = ignoreList
+    end
+    local res = self:Raycast(ray.Origin, ray.Direction, params)
+    if res then
+        return res.Instance, res.Position, res.Normal, res.Material
+    end
+    return nil, ray.Origin + ray.Direction, Vector3.new(0, 1, 0), Enum.Material.Plastic
+end
+
+function workspace:GetPartsInPart(part, overlapParams)
+    local results = {}
+    if not part or not part.Position or not part.Size then return results end
+    for _, desc in ipairs(self:GetDescendants()) do
+        if desc:IsA("BasePart") and desc ~= part and desc.Position and desc.Size then
+            local dist = (desc.Position - part.Position).Magnitude
+            if dist <= ((desc.Size.Magnitude + part.Size.Magnitude) * 0.5) then
+                table.insert(results, desc)
+            end
+        end
+    end
+    return results
+end
+
+function workspace:GetPartBoundsInBox(cframe, size, overlapParams)
+    local results = {}
+    local center = if typeof(cframe) == "CFrame" then cframe.Position else (cframe or Vector3.zero)
+    local radius = (size and size.Magnitude or 10) * 0.5
+    for _, desc in ipairs(self:GetDescendants()) do
+        if desc:IsA("BasePart") and desc.Position and desc.Size then
+            if (desc.Position - center).Magnitude <= (radius + desc.Size.Magnitude * 0.5) then
+                table.insert(results, desc)
+            end
+        end
+    end
+    return results
+end
+
+function workspace:GetPartBoundsInRadius(position, radius, overlapParams)
+    local results = {}
+    local center = position or Vector3.zero
+    local r = radius or 10
+    for _, desc in ipairs(self:GetDescendants()) do
+        if desc:IsA("BasePart") and desc.Position and desc.Size then
+            if (desc.Position - center).Magnitude <= (r + desc.Size.Magnitude * 0.5) then
+                table.insert(results, desc)
+            end
+        end
+    end
+    return results
+end
+
+function workspace:BulkMoveTo(parts, cframes)
+    if type(parts) == "table" and type(cframes) == "table" then
+        for i, p in ipairs(parts) do
+            if cframes[i] and p and p.CFrame then p.CFrame = cframes[i] end
+        end
+    end
+end
+
+Workspace = workspace
+workspace.findPartOnRay = workspace.FindPartOnRay
+workspace.findPartOnRayWithIgnoreList = workspace.FindPartOnRayWithIgnoreList
+workspace.getPartsInPart = workspace.GetPartsInPart
+workspace.getPartBoundsInBox = workspace.GetPartBoundsInBox
+workspace.getPartBoundsInRadius = workspace.GetPartBoundsInRadius
+workspace.bulkMoveTo = workspace.BulkMoveTo
+workspace.raycast = workspace.Raycast
+
 -- =========================================================================
 -- 13. Service Lookup Registry & Context Boundary Enforcement
 -- =========================================================================
@@ -2161,14 +3065,29 @@ function game:GetService(name)
     `
         : ''
     }
-    return _services[name] or error("Service '" .. tostring(name) .. "' is not a valid Service name")
+    if _services[name] then return _services[name] end
+    for k, v in pairs(_services) do
+        if k:lower() == tostring(name):lower() then return v end
+    end
+    return error("Service '" .. tostring(name) .. "' is not a valid Service name")
 end
+game.getService = game.GetService
+game.service = game.GetService
+game.FindService = game.GetService
+game.findService = game.GetService
+
+-- Service aliases
+Debris.addItem = Debris.AddItem
+TweenService.create = TweenService.Create
 
 -- Support direct dot indexing on game (e.g. game.Workspace, game.Lighting, game.TweenService)
 local gameMeta = getmetatable(game)
 local oldGameIndex = gameMeta.__index
 gameMeta.__index = function(self, key)
     if _services[key] then return _services[key] end
+    for k, v in pairs(_services) do
+        if k:lower() == tostring(key):lower() then return v end
+    end
     return oldGameIndex(self, key)
 end
 
@@ -2245,34 +3164,7 @@ function require(target)
     error("ModuleScript '" .. tostring(name) .. "' was not found in project")
 end
 
--- =========================================================================
--- 16. Custom typeof Implementation
--- =========================================================================
-local _lua_type = type
-function typeof(v)
-    if v == nil then return "nil" end
-    if _lua_type(v) == "table" then
-        if rawget(v, "_props") and rawget(v, "_props").ClassName then return "Instance" end
-        if rawget(v, "_name") == "Signal" then return "RBXScriptSignal" end
-        if rawget(v, "_group") then return "EnumItem" end
-        if rawget(v, "_name") and Enum[rawget(v, "_name")] then return "Enum" end
-        if v.X and v.Y and v.Z then return "Vector3" end
-        if v.X and v.Y and (not v.Z) then
-            if type(v.X) == "table" and v.X.Scale ~= nil then return "UDim2" end
-            return "Vector2"
-        end
-        if v.R and v.G and v.B then return "Color3" end
-        if v.Position and v.LookVector then return "CFrame" end
-        if v.Scale and v.Offset then return "UDim" end
-        if v.Time and v.EasingStyle then return "TweenInfo" end
-        if v.Number and v.Color and v.r then return "BrickColor" end
-        if v.Origin and v.Direction then return "Ray" end
-        if v.Min and v.Max and v.Width then return "Rect" end
-        if v.Min and v.Max then return "NumberRange" end
-        if v.FilterDescendantsInstances and v.FilterType then return "RaycastParams" end
-    end
-    return _lua_type(v)
-end
+-- (typeof is defined in section 2.5)
 
 -- =========================================================================
 -- 17. Hierarchy Serializer for Explorer Sync

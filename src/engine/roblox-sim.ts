@@ -173,12 +173,18 @@ export class SimulatedInstance {
   private _children: SimulatedInstance[] = [];
   private _properties: Record<string, unknown> = {};
   private _destroyed = false;
+  private _attributes: Record<string, unknown> = {};
+  private _tags: string[] = [];
 
   // Events
   Changed: RBXScriptSignal;
   ChildAdded: RBXScriptSignal;
   ChildRemoved: RBXScriptSignal;
+  DescendantAdded: RBXScriptSignal;
+  DescendantRemoving: RBXScriptSignal;
+  AncestryChanged: RBXScriptSignal;
   Destroying: RBXScriptSignal;
+  AttributeChanged: RBXScriptSignal;
 
   // For RemoteEvent
   OnServerEvent: RBXScriptSignal;
@@ -200,7 +206,11 @@ export class SimulatedInstance {
     this.Changed = new RBXScriptSignal('Changed');
     this.ChildAdded = new RBXScriptSignal('ChildAdded');
     this.ChildRemoved = new RBXScriptSignal('ChildRemoved');
+    this.DescendantAdded = new RBXScriptSignal('DescendantAdded');
+    this.DescendantRemoving = new RBXScriptSignal('DescendantRemoving');
+    this.AncestryChanged = new RBXScriptSignal('AncestryChanged');
     this.Destroying = new RBXScriptSignal('Destroying');
+    this.AttributeChanged = new RBXScriptSignal('AttributeChanged');
     this.OnServerEvent = new RBXScriptSignal('OnServerEvent');
     this.OnClientEvent = new RBXScriptSignal('OnClientEvent');
     this.Event = new RBXScriptSignal('Event');
@@ -284,7 +294,9 @@ export class SimulatedInstance {
   }
 
   set Parent(newParent: SimulatedInstance | null) {
-    if (this._destroyed) return;
+    if (this._destroyed && newParent !== null) {
+      throw new Error(`The Parent property of ${this.ClassName} is locked, current parent: NULL, new parent: ${newParent?.Name || 'NULL'}`);
+    }
     const oldParent = this._parent;
     if (oldParent === newParent) return;
 
@@ -304,6 +316,7 @@ export class SimulatedInstance {
     }
 
     this.Changed.Fire('Parent');
+    this.AncestryChanged.Fire(this, newParent);
   }
 
   FindFirstChild(name: string, recursive = false): SimulatedInstance | null {
@@ -384,13 +397,14 @@ export class SimulatedInstance {
   }
 
   Destroy(): void {
-    this._destroyed = true;
+    if (this._destroyed) return;
     this.Destroying.Fire();
     // Destroy all children first
     for (const child of [...this._children]) {
       child.Destroy();
     }
     this.Parent = null;
+    this._destroyed = true;
     this._children = [];
   }
 
@@ -398,6 +412,97 @@ export class SimulatedInstance {
     for (const child of [...this._children]) {
       child.Destroy();
     }
+  }
+
+  FindFirstAncestor(name: string): SimulatedInstance | null {
+    let curr = this._parent;
+    while (curr) {
+      if (curr.Name === name) return curr;
+      curr = curr._parent;
+    }
+    return null;
+  }
+
+  FindFirstAncestorOfClass(className: string): SimulatedInstance | null {
+    let curr = this._parent;
+    while (curr) {
+      if (curr.ClassName === className) return curr;
+      curr = curr._parent;
+    }
+    return null;
+  }
+
+  FindFirstAncestorWhichIsA(className: string): SimulatedInstance | null {
+    let curr = this._parent;
+    while (curr) {
+      if (curr.IsA(className)) return curr;
+      curr = curr._parent;
+    }
+    return null;
+  }
+
+  IsDescendantOf(ancestor: SimulatedInstance): boolean {
+    let curr = this._parent;
+    while (curr) {
+      if (curr === ancestor) return true;
+      curr = curr._parent;
+    }
+    return false;
+  }
+
+  IsAncestorOf(descendant: SimulatedInstance): boolean {
+    if (!descendant) return false;
+    return descendant.IsDescendantOf(this);
+  }
+
+  SetAttribute(name: string, value: unknown): void {
+    this._attributes[name] = value;
+    this.AttributeChanged.Fire(name);
+  }
+
+  GetAttribute(name: string): unknown {
+    return this._attributes[name];
+  }
+
+  GetAttributes(): Record<string, unknown> {
+    return { ...this._attributes };
+  }
+
+  AddTag(tag: string): void {
+    if (!this._tags.includes(tag)) {
+      this._tags.push(tag);
+    }
+  }
+
+  RemoveTag(tag: string): void {
+    const idx = this._tags.indexOf(tag);
+    if (idx !== -1) {
+      this._tags.splice(idx, 1);
+    }
+  }
+
+  HasTag(tag: string): boolean {
+    return this._tags.includes(tag);
+  }
+
+  GetTags(): string[] {
+    return [...this._tags];
+  }
+
+  BreakJoints(): void {
+    for (const child of this.GetDescendants()) {
+      if (['Weld', 'WeldConstraint', 'Motor6D', 'JointInstance'].includes(child.ClassName)) {
+        child.Destroy();
+      }
+    }
+  }
+
+  GetMass(): number {
+    const sz = this._properties['Size'] as { X?: number; Y?: number; Z?: number } | undefined;
+    if (sz && typeof sz.X === 'number' && typeof sz.Y === 'number' && typeof sz.Z === 'number') {
+      return sz.X * sz.Y * sz.Z * 0.7;
+    }
+    return 1;
   }
 
   // Remote event methods

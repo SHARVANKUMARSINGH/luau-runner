@@ -23,7 +23,13 @@ const ROBLOX_TOKENS_REGEX = new RegExp(
   'UserInputService|HttpService|ContextActionService|Debris|BadgeService|MarketplaceService|' +
   // Common Instance Methods
   'GetService|WaitForChild|FindFirstChild|FindFirstChildOfClass|FindFirstChildWhichIsA|' +
-  'GetChildren|GetDescendants|IsA|GetFullName|Clone|Destroy|ClearAllChildren|' +
+  'FindFirstAncestor|FindFirstAncestorOfClass|FindFirstAncestorWhichIsA|' +
+  'GetChildren|GetDescendants|IsA|IsDescendantOf|IsAncestorOf|GetFullName|Clone|Destroy|ClearAllChildren|' +
+  'SetAttribute|GetAttribute|GetAttributes|GetAttributeChangedSignal|GetPropertyChangedSignal|' +
+  'AddTag|RemoveTag|HasTag|GetTags|GetPivot|PivotTo|MoveTo|TranslateBy|GetBoundingBox|GetExtentsSize|' +
+  'ScaleTo|GetScale|GetMass|GetRootPart|BreakJoints|MakeJoints|ApplyImpulse|ApplyAngularImpulse|' +
+  'TakeDamage|ChangeState|GetState|EquipTool|UnequipTools|LoadAnimation|' +
+  'TweenPosition|TweenSize|TweenSizeAndPosition|Play|Stop|Pause|Resume|Kick|LoadCharacter|Raycast|FindPartOnRay|' +
   // Events & Signals
   'Connect|Disconnect|Fire|Wait|FireServer|FireClient|FireAllClients|InvokeServer|InvokeClient|' +
   // Global Functions
@@ -32,9 +38,9 @@ const ROBLOX_TOKENS_REGEX = new RegExp(
   // Task library methods
   'spawn|delay|defer|cancel|' +
   // Common properties
-  'Parent|Name|ClassName|Position|Size|Anchored|CanCollide|Transparency|Color|Material|Value|Text|Enabled|UserId|' +
+  'Parent|Name|ClassName|Position|Size|CFrame|Orientation|Rotation|Anchored|CanCollide|Transparency|Color|Material|Value|Text|Enabled|UserId|' +
   // Common Signals
-  'Changed|ChildAdded|ChildRemoved|Destroying|OnServerEvent|OnClientEvent|Event|' +
+  'Changed|ChildAdded|ChildRemoved|DescendantAdded|DescendantRemoving|AncestryChanged|Destroying|AttributeChanged|Touched|TouchEnded|Died|HealthChanged|StateChanged|OnServerEvent|OnClientEvent|Event|' +
   // Control keywords & end (Roblox Studio Purple)
   'end|then|do|while|repeat|until|if|else|elseif|for|function|local|return|break|continue|' +
   // Literals & booleans (including common typos)
