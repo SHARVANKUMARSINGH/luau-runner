@@ -10,7 +10,8 @@ import {
   faRotateLeft,
   faPalette,
   faGear,
-  faCode
+  faCode,
+  faComputerMouse
 } from '@fortawesome/free-solid-svg-icons';
 import type { AppSettings } from '../types';
 import { DEFAULT_SETTINGS } from '../types';
@@ -172,6 +173,54 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
+              {/* Virtual Mouse (Touch-to-Drag PC Mouse) */}
+              <div className="settings-row">
+                <div className="settings-label">
+                  <span className="setting-name">
+                    <FontAwesomeIcon icon={faComputerMouse} /> Virtual Mouse
+                  </span>
+                  <span className="setting-desc">
+                    On-screen virtual trackpad & PC cursor for touch & mobile. Touch & drag to move cursor, click, right-click, and scroll.
+                  </span>
+                </div>
+                <div className="settings-control">
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={settings.virtualMouse ?? false}
+                      onChange={(e) => handleChange('virtualMouse', e.target.checked)}
+                    />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+              </div>
+
+              {/* Execution Timeout (Infinite Option Supported) */}
+              <div className="settings-row">
+                <div className="settings-label">
+                  <span className="setting-name">
+                    <FontAwesomeIcon icon={faClock} /> Execution Timeout
+                  </span>
+                  <span className="setting-desc">
+                    Maximum execution duration before stopping scripts. Choose Infinite to run while true loops indefinitely until stopped.
+                  </span>
+                </div>
+                <div className="settings-control">
+                  <select
+                    className="select-input"
+                    value={settings.executionTimeout}
+                    onChange={(e) => handleChange('executionTimeout', Number(e.target.value))}
+                  >
+                    <option value={0}>♾️ Infinite (No Timeout)</option>
+                    <option value={5000}>5 seconds</option>
+                    <option value={10000}>10 seconds (Default)</option>
+                    <option value={20000}>20 seconds</option>
+                    <option value={30000}>30 seconds</option>
+                    <option value={60000}>60 seconds</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Line Numbers */}
               <div className="settings-row">
                 <div className="settings-label">
@@ -206,10 +255,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     value={settings.executionTimeout}
                     onChange={(e) => handleChange('executionTimeout', Number(e.target.value))}
                   >
+                    <option value={0}>♾️ Infinite (No Timeout)</option>
                     <option value={5000}>5 seconds</option>
                     <option value={10000}>10 seconds (Default)</option>
                     <option value={20000}>20 seconds</option>
                     <option value={30000}>30 seconds</option>
+                    <option value={60000}>60 seconds</option>
                   </select>
                 </div>
               </div>

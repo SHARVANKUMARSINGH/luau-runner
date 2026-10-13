@@ -58,10 +58,11 @@ export interface AppSettings {
   fontSize: number;
   tabSize: number;
   wordWrap: boolean;
-  executionTimeout: number;
+  executionTimeout: number; // 0 = Infinite, or ms duration
   showLineNumbers: boolean;
   autoSave: boolean;
   editorEngine: EditorEngine;
+  virtualMouse: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -73,6 +74,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   showLineNumbers: true,
   autoSave: true,
   editorEngine: 'codemirror',
+  virtualMouse: false,
 };
 
 // ===== Script Templates =====

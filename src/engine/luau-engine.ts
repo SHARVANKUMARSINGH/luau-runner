@@ -238,8 +238,9 @@ export async function executeLuauScript(
   });
 
   const contextName = activeScript.type === 'LocalScript' ? 'Client' : 'Server';
+  const timeoutText = timeoutMs <= 0 || !isFinite(timeoutMs) ? ' (Infinite Timeout)' : ` (${timeoutMs / 1000}s limit)`;
   callbacks.onOutput(
-    createMsg('system', `▶ Running ${activeScript.type} "${activeScript.name}" [${contextName} Context]`)
+    createMsg('system', `▶ Running ${activeScript.type} "${activeScript.name}" [${contextName} Context]${timeoutText}`)
   );
 
   let state: {
@@ -341,14 +342,17 @@ export async function executeLuauScript(
     // Compile script with Luau
     const fn = state.loadstring(fullCode, activeScript.name, true);
 
-    // Timeout protection
+    // Timeout protection (Infinite when timeoutMs <= 0)
     const timeoutPromise = new Promise<never>((_, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error(`Script execution timed out after ${timeoutMs / 1000}s`));
-      }, timeoutMs);
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      if (typeof timeoutMs === 'number' && timeoutMs > 0 && isFinite(timeoutMs)) {
+        timer = setTimeout(() => {
+          reject(new Error(`Script execution timed out after ${timeoutMs / 1000}s`));
+        }, timeoutMs);
+      }
 
       signal.addEventListener('abort', () => {
-        clearTimeout(timer);
+        if (timer) clearTimeout(timer);
         reject(new Error('Script execution cancelled'));
       });
     });

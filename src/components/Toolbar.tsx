@@ -13,7 +13,8 @@ import {
   faCircleQuestion, 
   faDownload,
   faCode,
-  faTrash
+  faTrash,
+  faRobot
 } from '@fortawesome/free-solid-svg-icons';
 import type { ThemeMode } from '../types';
 import './Toolbar.css';
@@ -34,6 +35,7 @@ interface ToolbarProps {
   onOpenExamples: () => void;
   onOpenDocs: () => void;
   onDownloadZip: () => void;
+  onOpenAiAgent: () => void;
 }
 
 const BRAND_ICON_URL = "/app-icon.png";
@@ -54,6 +56,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onOpenExamples,
   onOpenDocs,
   onDownloadZip,
+  onOpenAiAgent,
 }) => {
   const isDark = theme === 'dark';
   const [imgError, setImgError] = useState(false);
@@ -103,6 +106,16 @@ const Toolbar: React.FC<ToolbarProps> = ({
             <span className="btn-text">Stop</span>
           </button>
         )}
+
+        {/* AI Agent Button */}
+        <button
+          className="toolbar-btn btn-ai-agent"
+          onClick={onOpenAiAgent}
+          title="Luau AI Agent (Powered by OpenRouter) - Generate, Edit, or Optimize code"
+        >
+          <FontAwesomeIcon icon={faRobot} />
+          <span className="btn-text">AI Agent</span>
+        </button>
       </div>
 
       <div className="toolbar-divider" />

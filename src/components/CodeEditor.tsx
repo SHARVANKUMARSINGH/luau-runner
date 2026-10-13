@@ -20,6 +20,7 @@ import {
   faXmark
 } from '@fortawesome/free-solid-svg-icons';
 import type { ScriptType } from '../types';
+import { useDialog } from '../context/DialogContext';
 import { 
   createEditorState, 
   themeCompartment, 
@@ -69,6 +70,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [matchInfo, setMatchInfo] = useState<{ word: string; count: number } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const { showConfirm } = useDialog();
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -131,9 +133,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }, [value, showToast]);
 
-  const handleClear = useCallback(() => {
+  const handleClear = useCallback(async () => {
     if (!value.trim()) return;
-    if (window.confirm('Clear all code in this script?')) {
+    const confirmed = await showConfirm({
+      title: 'Clear Script',
+      message: 'Clear all code in this script? This action cannot be undone.',
+      confirmText: 'Clear Script',
+      danger: true,
+    });
+    if (confirmed) {
       if (viewRef.current) {
         viewRef.current.dispatch({
           changes: { from: 0, to: viewRef.current.state.doc.length, insert: '' },
@@ -143,7 +151,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       onChange('');
       showToast('🧹 Script cleared');
     }
-  }, [value, onChange, showToast]);
+  }, [value, onChange, showToast, showConfirm]);
 
   const handleUpdate = useCallback(
     (content: string) => {

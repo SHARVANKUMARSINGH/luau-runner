@@ -187,6 +187,27 @@
   border-color: rgba(210, 15, 57, 0.4) !important;
 }
 
+.btn-ai-agent {
+  background: linear-gradient(135deg, rgba(203, 166, 247, 0.25), rgba(137, 180, 250, 0.25));
+  border: 1px solid rgba(203, 166, 247, 0.4);
+  color: #cba6f7 !important;
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(203, 166, 247, 0.15);
+  transition: all 0.15s ease;
+}
+
+.btn-ai-agent:hover {
+  background: linear-gradient(135deg, rgba(203, 166, 247, 0.4), rgba(137, 180, 250, 0.4));
+  border-color: #cba6f7;
+  transform: translateY(-1px);
+}
+
+.app-toolbar.light .btn-ai-agent {
+  background: linear-gradient(135deg, rgba(136, 57, 239, 0.15), rgba(30, 102, 245, 0.15));
+  border-color: rgba(136, 57, 239, 0.35);
+  color: #8839ef !important;
+}
+
 /* Responsive for Mobile / Android */
 @media (max-width: 768px) {
   .app-toolbar {

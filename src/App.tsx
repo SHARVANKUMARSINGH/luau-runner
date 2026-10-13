@@ -30,6 +30,9 @@ import RenameModal from './components/RenameModal';
 import SettingsModal from './components/SettingsModal';
 import DocsModal from './components/DocsModal';
 import ExamplesModal from './components/ExamplesModal';
+import VirtualMouse from './components/VirtualMouse';
+import AiAgentModal from './components/AiAgentModal';
+import { useDialog } from './context/DialogContext';
 
 import './App.css';
 
@@ -78,6 +81,9 @@ export const App: React.FC = () => {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isDocsModalOpen, setIsDocsModalOpen] = useState(false);
   const [isExamplesModalOpen, setIsExamplesModalOpen] = useState(false);
+  const [isAiAgentModalOpen, setIsAiAgentModalOpen] = useState(false);
+
+  const { showConfirm } = useDialog();
 
   // Active Script reference
   const activeScript = useMemo(() => {
@@ -211,8 +217,14 @@ export const App: React.FC = () => {
   }, []);
 
   // Delete script
-  const handleDeleteScript = useCallback((script: ScriptFile) => {
-    if (confirm(`Are you sure you want to delete "${script.name}"?`)) {
+  const handleDeleteScript = useCallback(async (script: ScriptFile) => {
+    const confirmed = await showConfirm({
+      title: 'Delete Script',
+      message: `Are you sure you want to delete "${script.name}"? This action cannot be undone.`,
+      confirmText: 'Delete Script',
+      danger: true,
+    });
+    if (confirmed) {
       setScripts((prev) => {
         const filtered = prev.filter((s) => s.id !== script.id);
         if (filtered.length === 0) {
@@ -236,7 +248,7 @@ export const App: React.FC = () => {
         },
       ]);
     }
-  }, [activeScriptId]);
+  }, [activeScriptId, showConfirm]);
 
   // Delete current active script
   const handleDeleteActiveScript = useCallback(() => {
@@ -370,6 +382,7 @@ export const App: React.FC = () => {
         onOpenExamples={() => setIsExamplesModalOpen(true)}
         onOpenDocs={() => setIsDocsModalOpen(true)}
         onDownloadZip={handleDownloadZip}
+        onOpenAiAgent={() => setIsAiAgentModalOpen(true)}
       />
 
       {/* Main Layout Area */}
@@ -469,6 +482,30 @@ export const App: React.FC = () => {
         isOpen={isExamplesModalOpen}
         onClose={() => setIsExamplesModalOpen(false)}
         onLoadTemplate={handleLoadTemplate}
+        isDark={isDark}
+      />
+
+      {/* Luau AI Agent Modal (OpenRouter integration) */}
+      <AiAgentModal
+        isOpen={isAiAgentModalOpen}
+        onClose={() => setIsAiAgentModalOpen(false)}
+        activeScript={activeScript}
+        onUpdateActiveScriptContent={(newContent) => {
+          if (activeScript) {
+            handleContentChange(newContent);
+          }
+        }}
+        onCreateNewScript={(name, type, initialContent) => {
+          const newScript = createNewScript(name, type, initialContent);
+          setScripts((prev) => [...prev, newScript]);
+          setActiveScriptId(newScript.id);
+        }}
+        isDark={isDark}
+      />
+
+      {/* On-Screen Virtual Mouse (Touch-to-Drag PC Trackpad & Cursor) */}
+      <VirtualMouse
+        isEnabled={settings.virtualMouse ?? false}
         isDark={isDark}
       />
     </div>
