@@ -358,6 +358,119 @@ end
 print("💡 Tip: Click the Globe icon in the toolbar to inspect this hierarchy in the Explorer!")
 `,
   },
+  {
+    id: 'tpl_tweenservice',
+    name: 'TweenService Animation',
+    type: 'Script',
+    description: 'Demonstrates authentic TweenService easing, property interpolation, and signals',
+    content: `-- TweenService Demonstration in Luau Runner
+local TweenService = game:GetService("TweenService")
+
+print("✨ Creating animated Part in Workspace...")
+local part = Instance.new("Part")
+part.Name = "AnimatedPart"
+part.Size = Vector3.new(2, 2, 2)
+part.Position = Vector3.new(0, 5, 0)
+part.Color = Color3.fromRGB(137, 180, 250)
+part.Transparency = 0
+part.Anchored = true
+part.Parent = workspace
+
+print(\`Initial Part: Position={part.Position}, Size={part.Size}, Transparency={part.Transparency}\`)
+
+-- Define Tween configuration
+local tweenInfo = TweenInfo.new(
+    1.5,                           -- Time (duration in seconds)
+    Enum.EasingStyle.Bounce,       -- EasingStyle (Bounce, Quad, Elastic, Sine, etc.)
+    Enum.EasingDirection.Out,      -- EasingDirection (In, Out, InOut)
+    0,                             -- RepeatCount
+    false,                         -- Reverses
+    0                              -- DelayTime
+)
+
+local goals = {
+    Position = Vector3.new(0, 25, 0),
+    Size = Vector3.new(8, 8, 8),
+    Color = Color3.fromRGB(243, 139, 168),
+    Transparency = 0.5,
+}
+
+print("🎬 Creating and playing Tween...")
+local tween = TweenService:Create(part, tweenInfo, goals)
+
+tween.Completed:Connect(function(playbackState)
+    print("🎉 Tween Completed! PlaybackState:", playbackState)
+    print(\`Final Part: Position={part.Position}, Size={part.Size}, Transparency={part.Transparency}\`)
+end)
+
+tween:Play()
+`,
+  },
+  {
+    id: 'tpl_roblox_services',
+    name: 'All Roblox Services Showcase',
+    type: 'Script',
+    description: 'Showcases DataStoreService, HttpService, CollectionService, Debris, UserInputService, and MarketplaceService',
+    content: `-- Showcase of Working Roblox Services in Luau Runner
+
+-- 1. TweenService
+local TweenService = game:GetService("TweenService")
+local alpha = TweenService:GetValue(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+print("TweenService:GetValue(0.5, Quad, Out) =", alpha)
+
+-- 2. HttpService
+local HttpService = game:GetService("HttpService")
+local guid = HttpService:GenerateGUID(true)
+print("HttpService:GenerateGUID() =", guid)
+local testTable = { Name = "Luau", Version = 5.1, Active = true }
+local jsonStr = HttpService:JSONEncode(testTable)
+print("HttpService:JSONEncode() =", jsonStr)
+local decoded = HttpService:JSONDecode(jsonStr)
+print("HttpService:JSONDecode().Name =", decoded.Name)
+
+-- 3. DataStoreService (Real persistent storage!)
+local DataStoreService = game:GetService("DataStoreService")
+local playerStore = DataStoreService:GetDataStore("PlayerData")
+playerStore:SetAsync("User_1001", { Coins = 1500, Level = 12 })
+local savedData = playerStore:GetAsync("User_1001")
+print("DataStoreService:GetAsync() =", savedData.Coins, "coins, level", savedData.Level)
+
+-- 4. CollectionService
+local CollectionService = game:GetService("CollectionService")
+local coinPart = Instance.new("Part", workspace)
+coinPart.Name = "GoldCoin"
+CollectionService:AddTag(coinPart, "Coin")
+print("CollectionService:HasTag(coinPart, 'Coin') =", CollectionService:HasTag(coinPart, "Coin"))
+print("CollectionService:GetTagged('Coin') count =", #CollectionService:GetTagged("Coin"))
+
+-- 5. Debris
+local Debris = game:GetService("Debris")
+local tempPart = Instance.new("Part", workspace)
+tempPart.Name = "TemporaryPart"
+Debris:AddItem(tempPart, 2)
+print("Debris:AddItem(tempPart, 2) scheduled!")
+
+-- 6. Players & Character
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+print("Players.LocalPlayer =", player.Name, "UserId:", player.UserId)
+if player.Character then
+    local hum = player.Character:FindFirstChild("Humanoid")
+    if hum then
+        print("Character Humanoid Health =", hum.Health, "/", hum.MaxHealth)
+    end
+end
+
+-- 7. MarketplaceService & BadgeService
+local MarketplaceService = game:GetService("MarketplaceService")
+print("MarketplaceService:UserOwnsGamePassAsync() =", MarketplaceService:UserOwnsGamePassAsync(player.UserId, 12345))
+
+local BadgeService = game:GetService("BadgeService")
+BadgeService:AwardBadge(player.UserId, 9999)
+
+print("✅ All Roblox services are operational!")
+`,
+  },
 ];
 
 export function createDefaultScripts(): ScriptFile[] {

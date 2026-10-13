@@ -500,16 +500,38 @@ export class DataModel extends SimulatedInstance {
     const serviceNames = [
       'Workspace',
       'Players',
+      'Lighting',
       'ReplicatedStorage',
+      'ReplicatedFirst',
       'ServerStorage',
       'ServerScriptService',
       'StarterPlayer',
       'StarterGui',
       'StarterPack',
-      'Lighting',
       'SoundService',
       'UserInputService',
       'TweenService',
+      'HttpService',
+      'DataStoreService',
+      'CollectionService',
+      'Debris',
+      'ContextActionService',
+      'MarketplaceService',
+      'BadgeService',
+      'TeleportService',
+      'TextChatService',
+      'Chat',
+      'PathfindingService',
+      'PhysicsService',
+      'LocalizationService',
+      'PolicyService',
+      'GuiService',
+      'GroupService',
+      'MemoryStoreService',
+      'ProximityPromptService',
+      'LogService',
+      'TestService',
+      'AssetService',
     ];
 
     for (const name of serviceNames) {
@@ -533,9 +555,9 @@ export class DataModel extends SimulatedInstance {
     // Create a simulated local player
     const players = this.services.get('Players')!;
     const localPlayer = new SimulatedInstance('Player');
-    localPlayer.Name = 'SimPlayer';
-    localPlayer.setProperty('UserId', 1);
-    localPlayer.setProperty('DisplayName', 'SimPlayer');
+    localPlayer.Name = 'Player1';
+    localPlayer.setProperty('UserId', 12345678);
+    localPlayer.setProperty('DisplayName', 'Robloxian');
     localPlayer.Parent = players;
 
     // Add backpack and PlayerGui to player
@@ -553,7 +575,14 @@ export class DataModel extends SimulatedInstance {
 
   GetService(name: string): SimulatedInstance | null {
     if (name === 'RunService') return this.runService;
-    return this.services.get(name) ?? null;
+    let svc = this.services.get(name);
+    if (!svc) {
+      svc = new SimulatedInstance(name);
+      svc.Name = name;
+      svc.Parent = this;
+      this.services.set(name, svc);
+    }
+    return svc;
   }
 
   getWorkspace(): SimulatedInstance {

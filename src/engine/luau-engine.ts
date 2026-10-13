@@ -315,6 +315,60 @@ export async function executeLuauScript(
           }
         }
       },
+
+      __bridge_json_encode: (val: unknown) => {
+        try {
+          const jsVal = luauTableToJs(val);
+          return JSON.stringify(jsVal);
+        } catch {
+          return String(val);
+        }
+      },
+
+      __bridge_json_decode: (str: string) => {
+        try {
+          return JSON.parse(str);
+        } catch (e) {
+          throw new Error(`JSONDecode error: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      },
+
+      __bridge_generate_guid: () => {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+          const r = (Math.random() * 16) | 0;
+          const v = c === 'x' ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
+      },
+
+      __bridge_datastore_get: (storeName: string, key: string) => {
+        try {
+          const raw = localStorage.getItem(`luau_ds_${storeName}_${key}`);
+          if (raw === null) return null;
+          try {
+            return JSON.parse(raw);
+          } catch {
+            return raw;
+          }
+        } catch {
+          return null;
+        }
+      },
+
+      __bridge_datastore_set: (storeName: string, key: string, value: unknown) => {
+        try {
+          const k = `luau_ds_${storeName}_${key}`;
+          if (value === null || value === undefined) {
+            localStorage.removeItem(k);
+          } else {
+            const jsVal = luauTableToJs(value);
+            localStorage.setItem(k, JSON.stringify(jsVal));
+          }
+          return true;
+        } catch {
+          return false;
+        }
+      },
     };
 
     // Configure options in luau-web

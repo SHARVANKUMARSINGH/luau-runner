@@ -80,19 +80,41 @@ export const GAME_API: CompletionItem[] = [
 
 // Services available via GetService
 export const SERVICES: CompletionItem[] = [
-  { label: '"Workspace"', type: 'constant', detail: 'Service', info: 'Contains all 3D objects' },
-  { label: '"Players"', type: 'constant', detail: 'Service', info: 'Manages connected players' },
-  { label: '"ReplicatedStorage"', type: 'constant', detail: 'Service', info: 'Shared storage for server/client' },
-  { label: '"ServerStorage"', type: 'constant', detail: 'Service', info: 'Server-only storage' },
-  { label: '"ServerScriptService"', type: 'constant', detail: 'Service', info: 'Server-only scripts' },
-  { label: '"StarterPlayer"', type: 'constant', detail: 'Service', info: 'Player character defaults' },
-  { label: '"StarterGui"', type: 'constant', detail: 'Service', info: 'Default player GUIs' },
-  { label: '"StarterPack"', type: 'constant', detail: 'Service', info: 'Default player tools' },
-  { label: '"Lighting"', type: 'constant', detail: 'Service', info: 'Lighting and atmosphere' },
-  { label: '"RunService"', type: 'constant', detail: 'Service', info: 'Frame-based callbacks' },
-  { label: '"SoundService"', type: 'constant', detail: 'Service', info: 'Audio management' },
-  { label: '"UserInputService"', type: 'constant', detail: 'Service', info: 'Input handling' },
-  { label: '"TweenService"', type: 'constant', detail: 'Service', info: 'Value interpolation' },
+  { label: '"Workspace"', type: 'constant', detail: 'Service', info: 'Contains all 3D objects and world hierarchy' },
+  { label: '"Players"', type: 'constant', detail: 'Service', info: 'Manages players, characters, and client connections' },
+  { label: '"Lighting"', type: 'constant', detail: 'Service', info: 'Controls global ambient lighting, sky, shadows, and fog' },
+  { label: '"ReplicatedStorage"', type: 'constant', detail: 'Service', info: 'Shared storage for server and client (RemoteEvents, modules)' },
+  { label: '"ReplicatedFirst"', type: 'constant', detail: 'Service', info: 'Client scripts loaded first before anything else' },
+  { label: '"ServerStorage"', type: 'constant', detail: 'Service', info: 'Secure server-only storage inaccessible to clients' },
+  { label: '"ServerScriptService"', type: 'constant', detail: 'Service', info: 'Server-only scripts container' },
+  { label: '"StarterPlayer"', type: 'constant', detail: 'Service', info: 'Character defaults and player starter scripts' },
+  { label: '"StarterGui"', type: 'constant', detail: 'Service', info: 'Default player screen GUIs' },
+  { label: '"StarterPack"', type: 'constant', detail: 'Service', info: 'Default player inventory tools' },
+  { label: '"RunService"', type: 'constant', detail: 'Service', info: 'Heartbeat, Stepped, RenderStepped callbacks' },
+  { label: '"TweenService"', type: 'constant', detail: 'Service', info: 'Smooth value & property interpolation over time' },
+  { label: '"HttpService"', type: 'constant', detail: 'Service', info: 'JSON encode/decode, GUID generation, and HTTP requests' },
+  { label: '"DataStoreService"', type: 'constant', detail: 'Service', info: 'Persistent cloud key-value data storage' },
+  { label: '"CollectionService"', type: 'constant', detail: 'Service', info: 'Tag-based instance grouping and component management' },
+  { label: '"Debris"', type: 'constant', detail: 'Service', info: 'Timed cleanup and instance destruction scheduler' },
+  { label: '"UserInputService"', type: 'constant', detail: 'Service', info: 'Keyboard, mouse, touch, and gamepad input detection' },
+  { label: '"ContextActionService"', type: 'constant', detail: 'Service', info: 'Binds actions to keys, mouse clicks, and mobile touch buttons' },
+  { label: '"SoundService"', type: 'constant', detail: 'Service', info: 'Audio playback and 3D sound acoustics management' },
+  { label: '"MarketplaceService"', type: 'constant', detail: 'Service', info: 'Game passes, developer products, and asset monetization' },
+  { label: '"BadgeService"', type: 'constant', detail: 'Service', info: 'Awards and checks player game badges' },
+  { label: '"TeleportService"', type: 'constant', detail: 'Service', info: 'Teleports players between Roblox places and servers' },
+  { label: '"TextChatService"', type: 'constant', detail: 'Service', info: 'Modern Roblox text chat channels and message handling' },
+  { label: '"Chat"', type: 'constant', detail: 'Service', info: 'Legacy Roblox chat filtering and bubble chat' },
+  { label: '"PathfindingService"', type: 'constant', detail: 'Service', info: 'AI navigation mesh computation and waypoints' },
+  { label: '"PhysicsService"', type: 'constant', detail: 'Service', info: 'Custom collision groups and physics filtering' },
+  { label: '"LocalizationService"', type: 'constant', detail: 'Service', info: 'Language localization and player country region' },
+  { label: '"PolicyService"', type: 'constant', detail: 'Service', info: 'Player region compliance and safety policies' },
+  { label: '"GuiService"', type: 'constant', detail: 'Service', info: 'Screen insets, menu state, and UI navigation' },
+  { label: '"GroupService"', type: 'constant', detail: 'Service', info: 'Roblox community group info and player ranks' },
+  { label: '"MemoryStoreService"', type: 'constant', detail: 'Service', info: 'High-throughput in-memory sorted maps and queues' },
+  { label: '"ProximityPromptService"', type: 'constant', detail: 'Service', info: 'Global 3D interaction prompts and hold triggers' },
+  { label: '"LogService"', type: 'constant', detail: 'Service', info: 'Output message logging and diagnostics' },
+  { label: '"TestService"', type: 'constant', detail: 'Service', info: 'Unit testing and assertions' },
+  { label: '"AssetService"', type: 'constant', detail: 'Service', info: 'Dynamic asset and place management' },
 ];
 
 // Instance methods
@@ -295,6 +317,65 @@ export const BRICKCOLOR_API: CompletionItem[] = [
 // TweenInfo API
 export const TWEENINFO_API: CompletionItem[] = [
   { label: 'new', type: 'function', detail: '(time?, style?, dir?, count?, reverses?, delay?) → TweenInfo', info: 'Tween parameters' },
+];
+
+// TweenService API
+export const TWEENSERVICE_API: CompletionItem[] = [
+  { label: 'Create', type: 'method', detail: '(instance, tweenInfo, propertyTable) → Tween', info: 'Creates a new Tween object for smooth property animation' },
+  { label: 'GetValue', type: 'method', detail: '(alpha, easingStyle, easingDirection) → number', info: 'Calculates the eased alpha value along an easing curve' },
+];
+
+// HttpService API
+export const HTTPSERVICE_API: CompletionItem[] = [
+  { label: 'JSONEncode', type: 'method', detail: '(data) → string', info: 'Serializes a table or primitive into a standard JSON string' },
+  { label: 'JSONDecode', type: 'method', detail: '(jsonString) → any', info: 'Parses a JSON string into a native Luau table' },
+  { label: 'GenerateGUID', type: 'method', detail: '(wrapInCurlyBraces?: boolean) → string', info: 'Generates a random v4 UUID / GUID string' },
+  { label: 'UrlEncode', type: 'method', detail: '(str: string) → string', info: 'URL encodes a given string for web queries' },
+  { label: 'GetAsync', type: 'method', detail: '(url: string) → string', info: 'Sends an HTTP GET request' },
+  { label: 'PostAsync', type: 'method', detail: '(url: string, data: string) → string', info: 'Sends an HTTP POST request' },
+];
+
+// DataStoreService API
+export const DATASTORESERVICE_API: CompletionItem[] = [
+  { label: 'GetDataStore', type: 'method', detail: '(name: string, scope?: string) → GlobalDataStore', info: 'Retrieves or creates a named persistent key-value data store' },
+  { label: 'GetOrderedDataStore', type: 'method', detail: '(name: string, scope?: string) → OrderedDataStore', info: 'Retrieves or creates an ordered integer data store' },
+];
+export const DATASTORE_API = DATASTORESERVICE_API;
+
+// CollectionService API
+export const COLLECTIONSERVICE_API: CompletionItem[] = [
+  { label: 'AddTag', type: 'method', detail: '(instance: Instance, tag: string) → void', info: 'Attaches a CollectionService tag to an instance' },
+  { label: 'RemoveTag', type: 'method', detail: '(instance: Instance, tag: string) → void', info: 'Removes a tag from an instance' },
+  { label: 'HasTag', type: 'method', detail: '(instance: Instance, tag: string) → boolean', info: 'Checks whether an instance has the specified tag' },
+  { label: 'GetTags', type: 'method', detail: '(instance: Instance) → {string}', info: 'Returns an array of all tags attached to the instance' },
+  { label: 'GetTagged', type: 'method', detail: '(tag: string) → {Instance}', info: 'Returns all instances in the DataModel with the given tag' },
+  { label: 'GetInstanceAddedSignal', type: 'method', detail: '(tag: string) → RBXScriptSignal', info: 'Signal fired when an instance is tagged with this tag' },
+  { label: 'GetInstanceRemovedSignal', type: 'method', detail: '(tag: string) → RBXScriptSignal', info: 'Signal fired when a tag is removed from an instance' },
+];
+
+// Debris API
+export const DEBRIS_API: CompletionItem[] = [
+  { label: 'AddItem', type: 'method', detail: '(item: Instance, lifetime: number) → void', info: 'Schedules an instance to be automatically destroyed after lifetime seconds' },
+];
+
+// MarketplaceService API
+export const MARKETPLACESERVICE_API: CompletionItem[] = [
+  { label: 'UserOwnsGamePassAsync', type: 'method', detail: '(userId: number, passId: number) → boolean', info: 'Checks if a player owns a gamepass' },
+  { label: 'GetProductInfo', type: 'method', detail: '(assetId: number, infoType?: number) → table', info: 'Fetches product details from Roblox marketplace' },
+  { label: 'PromptPurchase', type: 'method', detail: '(player: Player, assetId: number) → void', info: 'Prompts the player to purchase an asset' },
+  { label: 'PromptGamePassPurchase', type: 'method', detail: '(player: Player, passId: number) → void', info: 'Prompts the player to purchase a gamepass' },
+  { label: 'PromptPurchaseFinished', type: 'property', detail: 'RBXScriptSignal', info: 'Fires when an asset purchase prompt finishes' },
+  { label: 'PromptGamePassPurchaseFinished', type: 'property', detail: 'RBXScriptSignal', info: 'Fires when a gamepass purchase prompt finishes' },
+];
+
+// UserInputService API
+export const USERINPUTSERVICE_API: CompletionItem[] = [
+  { label: 'IsKeyDown', type: 'method', detail: '(keyCode: Enum.KeyCode) → boolean', info: 'Returns whether the specified keyboard key is held down' },
+  { label: 'IsMouseButtonPressed', type: 'method', detail: '(button: Enum.UserInputType) → boolean', info: 'Returns whether the mouse button is pressed' },
+  { label: 'GetMouseLocation', type: 'method', detail: '() → Vector2', info: 'Returns the 2D cursor coordinates on screen' },
+  { label: 'InputBegan', type: 'property', detail: 'RBXScriptSignal', info: 'Fires when user initiates any key, mouse, or touch input' },
+  { label: 'InputEnded', type: 'property', detail: 'RBXScriptSignal', info: 'Fires when user releases input' },
+  { label: 'TouchTap', type: 'property', detail: 'RBXScriptSignal', info: 'Fires when user taps a touch screen' },
 ];
 
 // Enum API

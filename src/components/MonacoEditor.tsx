@@ -41,6 +41,13 @@ import {
   UDIM_API,
   BRICKCOLOR_API,
   TWEENINFO_API,
+  TWEENSERVICE_API,
+  HTTPSERVICE_API,
+  DATASTORE_API,
+  COLLECTIONSERVICE_API,
+  DEBRIS_API,
+  USERINPUTSERVICE_API,
+  MARKETPLACESERVICE_API,
   ENUM_API,
   BASEPART_API,
   PLAYERS_API,
@@ -393,6 +400,83 @@ function setupMonacoLanguages(monaco: Monaco) {
               label: c.label,
               kind: monaco.languages.CompletionItemKind.Function,
               detail: c.detail,
+              insertText: c.label,
+              range,
+            });
+          });
+        } else if (prefix === 'tweenservice') {
+          TWEENSERVICE_API.forEach((c) => {
+            suggestions.push({
+              label: c.label,
+              kind: monaco.languages.CompletionItemKind.Method,
+              detail: c.detail,
+              documentation: c.info,
+              insertText: c.label,
+              range,
+            });
+          });
+        } else if (prefix === 'httpservice') {
+          HTTPSERVICE_API.forEach((c) => {
+            suggestions.push({
+              label: c.label,
+              kind: monaco.languages.CompletionItemKind.Method,
+              detail: c.detail,
+              documentation: c.info,
+              insertText: c.label,
+              range,
+            });
+          });
+        } else if (prefix === 'datastoreservice') {
+          DATASTORE_API.forEach((c) => {
+            suggestions.push({
+              label: c.label,
+              kind: monaco.languages.CompletionItemKind.Method,
+              detail: c.detail,
+              documentation: c.info,
+              insertText: c.label,
+              range,
+            });
+          });
+        } else if (prefix === 'collectionservice') {
+          COLLECTIONSERVICE_API.forEach((c) => {
+            suggestions.push({
+              label: c.label,
+              kind: monaco.languages.CompletionItemKind.Method,
+              detail: c.detail,
+              documentation: c.info,
+              insertText: c.label,
+              range,
+            });
+          });
+        } else if (prefix === 'debris') {
+          DEBRIS_API.forEach((c) => {
+            suggestions.push({
+              label: c.label,
+              kind: monaco.languages.CompletionItemKind.Method,
+              detail: c.detail,
+              documentation: c.info,
+              insertText: c.label,
+              range,
+            });
+          });
+        } else if (prefix === 'userinputservice') {
+          USERINPUTSERVICE_API.forEach((c) => {
+            suggestions.push({
+              label: c.label,
+              kind: c.type === 'method' ? monaco.languages.CompletionItemKind.Method : monaco.languages.CompletionItemKind.Property,
+              detail: c.detail,
+              documentation: c.info,
+              insertText: c.label,
+              range,
+            });
+          });
+        } else if (prefix === 'marketplaceservice') {
+          MARKETPLACESERVICE_API.forEach((c) => {
+            suggestions.push({
+              label: c.label,
+              kind: c.type === 'method' ? monaco.languages.CompletionItemKind.Method : monaco.languages.CompletionItemKind.Property,
+              detail: c.detail,
+              documentation: c.info,
               insertText: c.label,
               range,
             });

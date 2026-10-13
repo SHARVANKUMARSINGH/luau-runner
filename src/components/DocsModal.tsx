@@ -129,39 +129,39 @@ const DocsModal: React.FC<DocsModalProps> = ({ isOpen, onClose, isDark }) => {
               <div className="api-grid">
                 <div className="api-item">
                   <span className="api-name"><code>game:GetService(name)</code></span>
-                  <span className="api-desc">Returns Workspace, Players, ReplicatedStorage, ServerStorage, ServerScriptService, StarterGui, Lighting, RunService.</span>
+                  <span className="api-desc">Returns Workspace, Players, TweenService, HttpService, DataStoreService, CollectionService, Debris, UserInputService, MarketplaceService, Lighting, RunService, and more.</span>
+                </div>
+                <div className="api-item">
+                  <span className="api-name"><code>TweenService:Create(...)</code></span>
+                  <span className="api-desc"><strong>Fully operational!</strong> Smoothly interpolates Position, Size, Color3, CFrame, Transparency over time with easing curves and fires <code>Completed</code> event.</span>
+                </div>
+                <div className="api-item">
+                  <span className="api-name"><code>HttpService</code></span>
+                  <span className="api-desc">Working <code>:JSONEncode(tbl)</code>, <code>:JSONDecode(str)</code>, <code>:GenerateGUID()</code>, and <code>:UrlEncode(str)</code>.</span>
+                </div>
+                <div className="api-item">
+                  <span className="api-name"><code>DataStoreService</code></span>
+                  <span className="api-desc">Working <code>:GetDataStore(name)</code> with <code>:GetAsync()</code>, <code>:SetAsync()</code>, <code>:UpdateAsync()</code>, and <code>:IncrementAsync()</code>.</span>
+                </div>
+                <div className="api-item">
+                  <span className="api-name"><code>CollectionService & Debris</code></span>
+                  <span className="api-desc">Tag-based grouping with <code>:AddTag()</code>, <code>:HasTag()</code>, <code>:GetTagged()</code>, plus scheduled cleanup with <code>Debris:AddItem(item, time)</code>.</span>
                 </div>
                 <div className="api-item">
                   <span className="api-name"><code>Instance.new(className, parent?)</code></span>
-                  <span className="api-desc">Instantiates Part, MeshPart, Model, Folder, RemoteEvent, RemoteFunction, ScreenGui, Frame, TextLabel, Value objects.</span>
+                  <span className="api-desc">Instantiates Part, MeshPart, Model, Folder, Humanoid, Tool, Sound, RemoteEvent, ScreenGui, Frame, TextLabel, Value objects.</span>
                 </div>
                 <div className="api-item">
-                  <span className="api-name"><code>workspace</code></span>
-                  <span className="api-desc">Root Workspace service containing 3D Instances, Terrain, and Camera.</span>
-                </div>
-                <div className="api-item">
-                  <span className="api-name"><code>Instance Properties</code></span>
-                  <span className="api-desc"><code>Name</code>, <code>ClassName</code>, <code>Parent</code>, <code>Position</code>, <code>Size</code>, <code>Anchored</code>, <code>CanCollide</code>, <code>Value</code>, <code>Text</code>.</span>
-                </div>
-                <div className="api-item">
-                  <span className="api-name"><code>Instance Methods</code></span>
-                  <span className="api-desc"><code>:GetChildren()</code>, <code>:GetDescendants()</code>, <code>:FindFirstChild()</code>, <code>:WaitForChild()</code>, <code>:IsA()</code>, <code>:Clone()</code>, <code>:Destroy()</code>.</span>
-                </div>
-                <div className="api-item">
-                  <span className="api-name"><code>Events & Signals</code></span>
-                  <span className="api-desc"><code>signal:Connect(fn)</code>, <code>signal:Once(fn)</code>, <code>signal:Wait()</code>, <code>connection:Disconnect()</code>, <code>inst.Changed</code>, <code>inst.ChildAdded</code>.</span>
+                  <span className="api-name"><code>workspace & Raycast</code></span>
+                  <span className="api-desc">Root Workspace with <code>workspace:Raycast(origin, dir, params)</code>, Gravity, and CurrentCamera.</span>
                 </div>
                 <div className="api-item">
                   <span className="api-name"><code>task Library</code></span>
-                  <span className="api-desc"><code>task.wait(seconds)</code> (yields via Asyncify), <code>task.spawn(fn)</code>, <code>task.delay(sec, fn)</code>, <code>task.defer(fn)</code>.</span>
+                  <span className="api-desc"><code>task.wait(sec)</code> (yields via Asyncify), <code>task.spawn(fn)</code>, <code>task.delay(sec, fn)</code>, <code>task.defer(fn)</code>.</span>
                 </div>
                 <div className="api-item">
-                  <span className="api-name"><code>RemoteEvent & RemoteFunction</code></span>
-                  <span className="api-desc"><code>:FireServer()</code>, <code>:FireClient()</code>, <code>:FireAllClients()</code>, <code>.OnServerEvent</code>, <code>.OnClientEvent</code>.</span>
-                </div>
-                <div className="api-item">
-                  <span className="api-name"><code>Vector3, CFrame, Color3, UDim2</code></span>
-                  <span className="api-desc">Roblox geometric and color types with constructors and operators.</span>
+                  <span className="api-name"><code>Vector3, Vector2, CFrame, Color3, UDim2, TweenInfo</code></span>
+                  <span className="api-desc">Complete geometric, color, and animation parameter types with mathematical operators and methods.</span>
                 </div>
               </div>
             </div>

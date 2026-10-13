@@ -40,6 +40,13 @@ import {
   UDIM_API,
   BRICKCOLOR_API,
   TWEENINFO_API,
+  TWEENSERVICE_API,
+  HTTPSERVICE_API,
+  DATASTORE_API,
+  COLLECTIONSERVICE_API,
+  DEBRIS_API,
+  USERINPUTSERVICE_API,
+  MARKETPLACESERVICE_API,
   ENUM_API,
   BASEPART_API,
   PLAYERS_API,
@@ -482,6 +489,20 @@ function luauCompletions(context: CompletionContext) {
       completions = BRICKCOLOR_API.map(toCompletion);
     } else if (lastToken === 'tweeninfo') {
       completions = TWEENINFO_API.map(toCompletion);
+    } else if (lastToken === 'tweenservice') {
+      completions = TWEENSERVICE_API.map(toCompletion);
+    } else if (lastToken === 'httpservice') {
+      completions = HTTPSERVICE_API.map(toCompletion);
+    } else if (lastToken === 'datastoreservice') {
+      completions = DATASTORE_API.map(toCompletion);
+    } else if (lastToken === 'collectionservice') {
+      completions = COLLECTIONSERVICE_API.map(toCompletion);
+    } else if (lastToken === 'debris') {
+      completions = DEBRIS_API.map(toCompletion);
+    } else if (lastToken === 'userinputservice') {
+      completions = USERINPUTSERVICE_API.map(toCompletion);
+    } else if (lastToken === 'marketplaceservice') {
+      completions = MARKETPLACESERVICE_API.map(toCompletion);
     } else if (lastToken === 'enum') {
       completions = ENUM_API.map(toCompletion);
     } else if (lastToken === 'players') {
