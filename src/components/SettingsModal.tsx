@@ -180,7 +180,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <FontAwesomeIcon icon={faComputerMouse} /> Virtual Mouse
                   </span>
                   <span className="setting-desc">
-                    On-screen virtual trackpad & PC cursor for touch & mobile. Touch & drag to move cursor, click, right-click, and scroll.
+                    Direct-touch on-screen PC cursor (no touchpad). Touch & drag cursor directly over code, hover over script for 2.6s to inspect End Blocks, click, right-click, and scroll.
                   </span>
                 </div>
                 <div className="settings-control">

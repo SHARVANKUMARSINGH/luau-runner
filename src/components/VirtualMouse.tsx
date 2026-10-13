@@ -7,13 +7,14 @@ import {
   faChevronDown, 
   faMinus, 
   faArrowsUpDownLeftRight,
-  faHandPointer
+  faCube
 } from '@fortawesome/free-solid-svg-icons';
 import './VirtualMouse.css';
 
 interface VirtualMouseProps {
   isEnabled: boolean;
   isDark: boolean;
+  onOpenEndBlock?: (targetLine: number) => void;
 }
 
 interface Ripple {
@@ -23,34 +24,50 @@ interface Ripple {
   isRightClick: boolean;
 }
 
-export const VirtualMouse: React.FC<VirtualMouseProps> = ({ isEnabled, isDark }) => {
+export const VirtualMouse: React.FC<VirtualMouseProps> = ({ 
+  isEnabled, 
+  isDark,
+  onOpenEndBlock 
+}) => {
   // Cursor coordinate state (starts at center of screen)
   const [cursorPos, setCursorPos] = useState(() => ({
     x: Math.max(20, Math.floor(window.innerWidth / 2)),
     y: Math.max(20, Math.floor(window.innerHeight / 2)),
   }));
 
-  // Trackpad floating position
-  const [panelPos, setPanelPos] = useState(() => ({
-    x: Math.max(10, window.innerWidth - 280),
-    y: Math.max(10, window.innerHeight - 260),
+  // Floating controls pill position
+  const [pillPos, setPillPos] = useState(() => ({
+    x: Math.max(10, Math.floor((window.innerWidth - 300) / 2)),
+    y: Math.max(10, window.innerHeight - 90),
   }));
 
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [isTouchingTouchpad, setIsTouchingTouchpad] = useState(false);
+  const [isPillMinimized, setIsPillMinimized] = useState(false);
   const [isDragMode, setIsDragMode] = useState(false);
   const [isClickingVisual, setIsClickingVisual] = useState(false);
   const [ripples, setRipples] = useState<Ripple[]>([]);
+  const [isDraggingCursor, setIsDraggingCursor] = useState(false);
 
-  // Refs for touch gesture math
-  const lastTouchRef = useRef<{ x: number; y: number } | null>(null);
-  const touchStartPosRef = useRef<{ x: number; y: number; time: number } | null>(null);
-  const isDraggingPanelRef = useRef(false);
-  const panelDragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  // 2.6s Hover countdown state
+  const [hoverProgress, setHoverProgress] = useState(0); // 0 to 1
+  const [hoverLine, setHoverLine] = useState<number | null>(null);
+  const [isHoveringScript, setIsHoveringScript] = useState(false);
+
+  // Refs for tracking drag and hover
   const cursorPosRef = useRef(cursorPos);
   cursorPosRef.current = cursorPos;
 
-  // Clamp helper
+  const dragStartTouchRef = useRef<{ x: number; y: number } | null>(null);
+  const dragStartCursorRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const touchStartTimeRef = useRef<number>(0);
+
+  const isDraggingPillRef = useRef(false);
+  const pillDragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverAnimRef = useRef<number | null>(null);
+  const hoverStartRef = useRef<number>(0);
+  const lastHoverPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
   const clamp = (val: number, min: number, max: number) => Math.min(Math.max(val, min), max);
 
   // Trigger click ripple effect
@@ -94,7 +111,6 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({ isEnabled, isDark })
         return;
       }
 
-      // Pointer event for modern browsers & editors (Monaco/CodeMirror)
       try {
         const pointerType = type === 'mousedown' ? 'pointerdown' : type === 'mouseup' ? 'pointerup' : null;
         if (pointerType) {
@@ -108,13 +124,11 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({ isEnabled, isDark })
           );
         }
       } catch {
-        // Fallback gracefully
+        // Fallback
       }
 
-      // Mouse event
       target.dispatchEvent(new MouseEvent(type, mouseInit));
 
-      // Handle focus and text inputs / code editors
       if (type === 'click' || type === 'mousedown') {
         if (typeof (target as HTMLElement).focus === 'function') {
           (target as HTMLElement).focus();
@@ -174,7 +188,6 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({ isEnabled, isDark })
       })
     );
 
-    // Also directly scroll scrollable container
     let parent: HTMLElement | null = target as HTMLElement;
     while (parent && parent !== document.body) {
       if (parent.scrollHeight > parent.clientHeight || parent.scrollWidth > parent.clientWidth) {
@@ -185,90 +198,187 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({ isEnabled, isDark })
     }
   }, []);
 
-  // Touchpad touch handlers
-  const handleTouchpadStart = (e: React.TouchEvent) => {
+  // =========================================================================
+  // DIRECT TOUCH DRAG ON MOUSE CURSOR (NO TOUCH PAD NEEDED)
+  // =========================================================================
+  const handleCursorTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
     const touch = e.touches[0];
-    lastTouchRef.current = { x: touch.clientX, y: touch.clientY };
-    touchStartPosRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-      time: Date.now(),
-    };
-    setIsTouchingTouchpad(true);
+    dragStartTouchRef.current = { x: touch.clientX, y: touch.clientY };
+    dragStartCursorRef.current = { ...cursorPosRef.current };
+    touchStartTimeRef.current = Date.now();
+    setIsDraggingCursor(true);
+    resetHoverCountdown();
   };
 
-  const handleTouchpadMove = (e: React.TouchEvent) => {
-    if (!lastTouchRef.current) return;
+  const handleCursorTouchMove = (e: React.TouchEvent) => {
+    if (!dragStartTouchRef.current) return;
+    e.stopPropagation();
     const touch = e.touches[0];
-    const dx = touch.clientX - lastTouchRef.current.x;
-    const dy = touch.clientY - lastTouchRef.current.y;
-    lastTouchRef.current = { x: touch.clientX, y: touch.clientY };
+    const dx = touch.clientX - dragStartTouchRef.current.x;
+    const dy = touch.clientY - dragStartTouchRef.current.y;
 
-    const sensitivity = 1.35;
-    setCursorPos((prev) => {
-      const newX = clamp(prev.x + dx * sensitivity, 4, window.innerWidth - 6);
-      const newY = clamp(prev.y + dy * sensitivity, 4, window.innerHeight - 6);
-      return { x: newX, y: newY };
-    });
+    // Direct 1:1 finger tracking with ergonomic finger offset
+    // The cursor tip is slightly above finger so thumb doesn't block view of code
+    const newX = clamp(dragStartCursorRef.current.x + dx, 4, window.innerWidth - 6);
+    const newY = clamp(dragStartCursorRef.current.y + dy, 4, window.innerHeight - 6);
 
-    if (isDragMode) {
-      const target = document.elementFromPoint(cursorPosRef.current.x, cursorPosRef.current.y);
-      if (target) {
-        target.dispatchEvent(
-          new MouseEvent('mousemove', {
-            bubbles: true,
-            cancelable: true,
-            clientX: cursorPosRef.current.x,
-            clientY: cursorPosRef.current.y,
-            buttons: 1,
-          })
-        );
-      }
+    setCursorPos({ x: newX, y: newY });
+
+    // Emit synthetic mousemove for real-time hover
+    const target = document.elementFromPoint(newX, newY);
+    if (target) {
+      target.dispatchEvent(
+        new MouseEvent('mousemove', {
+          bubbles: true,
+          cancelable: true,
+          clientX: newX,
+          clientY: newY,
+          buttons: isDragMode ? 1 : 0,
+        })
+      );
     }
+
+    resetHoverCountdown();
   };
 
-  const handleTouchpadEnd = () => {
-    setIsTouchingTouchpad(false);
-    if (touchStartPosRef.current && lastTouchRef.current) {
-      const dt = Date.now() - touchStartPosRef.current.time;
+  const handleCursorTouchEnd = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    setIsDraggingCursor(false);
+
+    // If quick tap on the cursor itself (< 200ms and minimal movement), perform a Left Click
+    if (dragStartTouchRef.current) {
+      const dt = Date.now() - touchStartTimeRef.current;
+      const touch = e.changedTouches[0];
       const dist = Math.hypot(
-        lastTouchRef.current.x - touchStartPosRef.current.x,
-        lastTouchRef.current.y - touchStartPosRef.current.y
+        touch.clientX - dragStartTouchRef.current.x,
+        touch.clientY - dragStartTouchRef.current.y
       );
 
-      // Fast tap without moving = Left Click
-      if (dt < 250 && dist < 10) {
+      if (dt < 220 && dist < 12) {
         handleLeftClick();
       }
     }
-    lastTouchRef.current = null;
-    touchStartPosRef.current = null;
+
+    dragStartTouchRef.current = null;
+    startHoverCheckAtPosition(cursorPosRef.current.x, cursorPosRef.current.y);
   };
 
-  // Header Drag Handlers to reposition panel
-  const handleHeaderTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    isDraggingPanelRef.current = true;
-    panelDragOffsetRef.current = {
-      x: touch.clientX - panelPos.x,
-      y: touch.clientY - panelPos.y,
+  // =========================================================================
+  // 2.6 SECONDS HOVER COUNTDOWN OVER SCRIPT
+  // =========================================================================
+  const resetHoverCountdown = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    if (hoverAnimRef.current) {
+      cancelAnimationFrame(hoverAnimRef.current);
+      hoverAnimRef.current = null;
+    }
+    setHoverProgress(0);
+    setIsHoveringScript(false);
+    setHoverLine(null);
+  }, []);
+
+  const detectScriptLineAtCoords = useCallback((x: number, y: number): number | null => {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return null;
+
+    // Check if inside CodeMirror (.cm-editor) or Monaco (.monaco-editor)
+    const isEditor = el.closest('.cm-editor') || el.closest('.monaco-editor');
+    if (!isEditor) return null;
+
+    // Query active editor via custom event
+    const detail = { x, y, line: null as number | null };
+
+    window.dispatchEvent(
+      new CustomEvent('query-editor-line-at-coords', {
+        detail,
+      })
+    );
+
+    if (detail.line && typeof detail.line === 'number') {
+      return detail.line;
+    }
+
+    // Fallback: CodeMirror line element detection
+    const cmLine = el.closest('.cm-line');
+    if (cmLine) {
+      // Count preceding sibling lines
+      let count = 1;
+      let sibling = cmLine.previousElementSibling;
+      while (sibling) {
+        if (sibling.classList.contains('cm-line')) count++;
+        sibling = sibling.previousElementSibling;
+      }
+      return count;
+    }
+
+    // Fallback: Monaco view-line
+    const monacoLine = el.closest('.view-line');
+    if (monacoLine) {
+      const top = (monacoLine as HTMLElement).offsetTop;
+      const lineH = parseFloat(getComputedStyle(monacoLine).lineHeight) || 19;
+      return Math.max(1, Math.round(top / lineH) + 1);
+    }
+
+    return 1;
+  }, []);
+
+  const startHoverCheckAtPosition = useCallback((x: number, y: number) => {
+    resetHoverCountdown();
+    lastHoverPosRef.current = { x, y };
+
+    const line = detectScriptLineAtCoords(x, y);
+    if (!line) return;
+
+    setIsHoveringScript(true);
+    setHoverLine(line);
+    hoverStartRef.current = performance.now();
+
+    const DURATION = 2600; // Exact 2.6 seconds
+
+    const animate = (now: number) => {
+      const elapsed = now - hoverStartRef.current;
+      const progress = Math.min(elapsed / DURATION, 1);
+      setHoverProgress(progress);
+
+      if (progress < 1) {
+        hoverAnimRef.current = requestAnimationFrame(animate);
+      } else {
+        // 2.6 SECONDS COMPLETED! Open the End Block Thing!
+        addRipple(x, y, false);
+        if (onOpenEndBlock) {
+          onOpenEndBlock(line);
+        } else {
+          window.dispatchEvent(
+            new CustomEvent('open-end-block-inspector', {
+              detail: { line, x, y },
+            })
+          );
+        }
+        resetHoverCountdown();
+      }
     };
-  };
 
-  const handleHeaderTouchMove = (e: React.TouchEvent) => {
-    if (!isDraggingPanelRef.current) return;
-    const touch = e.touches[0];
-    setPanelPos({
-      x: clamp(touch.clientX - panelDragOffsetRef.current.x, 0, window.innerWidth - 240),
-      y: clamp(touch.clientY - panelDragOffsetRef.current.y, 0, window.innerHeight - 100),
-    });
-  };
+    hoverAnimRef.current = requestAnimationFrame(animate);
+  }, [detectScriptLineAtCoords, onOpenEndBlock, resetHoverCountdown, addRipple]);
 
-  const handleHeaderTouchEnd = () => {
-    isDraggingPanelRef.current = false;
-  };
+  // When cursor stops moving, start hover check
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      startHoverCheckAtPosition(cursorPos.x, cursorPos.y);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [cursorPos, startHoverCheckAtPosition]);
 
-  // Keep within screen bounds on window resize
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => resetHoverCountdown();
+  }, [resetHoverCountdown]);
+
+  // Keep within bounds on window resize
   useEffect(() => {
     const handleResize = () => {
       setCursorPos((prev) => ({
@@ -280,15 +390,75 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({ isEnabled, isDark })
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Pill Drag Handlers (reposition floating action pill)
+  const handlePillTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    isDraggingPillRef.current = true;
+    pillDragOffsetRef.current = {
+      x: touch.clientX - pillPos.x,
+      y: touch.clientY - pillPos.y,
+    };
+  };
+
+  const handlePillTouchMove = (e: React.TouchEvent) => {
+    if (!isDraggingPillRef.current) return;
+    const touch = e.touches[0];
+    setPillPos({
+      x: clamp(touch.clientX - pillDragOffsetRef.current.x, 10, window.innerWidth - 180),
+      y: clamp(touch.clientY - pillDragOffsetRef.current.y, 10, window.innerHeight - 60),
+    });
+  };
+
+  const handlePillTouchEnd = () => {
+    isDraggingPillRef.current = false;
+  };
+
   if (!isEnabled) return null;
+
+  // SVG Circular countdown math (radius = 16, circumference = 2 * PI * 16 ≈ 100.53)
+  const radius = 16;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - hoverProgress * circumference;
 
   return (
     <>
-      {/* On-Screen PC Mouse Cursor Pointer */}
+      {/* ========================================================================= */}
+      {/* DIRECT-TOUCH PC MOUSE CURSOR WITH 2.6s HOVER PROGRESS RING               */}
+      {/* ========================================================================= */}
       <div
-        className={`virtual-mouse-cursor ${isClickingVisual ? 'is-clicking' : ''} ${isDragMode ? 'is-dragging' : ''}`}
+        className={`virtual-mouse-cursor ${isClickingVisual ? 'is-clicking' : ''} ${isDragMode ? 'is-dragging' : ''} ${isDraggingCursor ? 'is-grabbed' : ''}`}
         style={{ left: `${cursorPos.x}px`, top: `${cursorPos.y}px` }}
+        onTouchStart={handleCursorTouchStart}
+        onTouchMove={handleCursorTouchMove}
+        onTouchEnd={handleCursorTouchEnd}
       >
+        {/* 2.6s Hover Circular Progress Ring */}
+        {isHoveringScript && hoverProgress > 0 && (
+          <div className="vm-hover-gauge">
+            <svg className="vm-gauge-svg" width="40" height="40" viewBox="0 0 40 40">
+              <circle
+                className="vm-gauge-bg"
+                cx="20"
+                cy="20"
+                r={radius}
+              />
+              <circle
+                className="vm-gauge-fill"
+                cx="20"
+                cy="20"
+                r={radius}
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+              />
+            </svg>
+            <span className="vm-gauge-label">
+              <FontAwesomeIcon icon={faCube} style={{ marginRight: '2px' }} />
+              {hoverLine ? `L${hoverLine} • ` : ''}{(2.6 * (1 - hoverProgress)).toFixed(1)}s
+            </span>
+          </div>
+        )}
+
+        {/* PC Mouse Pointer Arrow SVG */}
         <svg
           className="virtual-mouse-cursor-svg"
           viewBox="0 0 24 24"
@@ -303,6 +473,12 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({ isEnabled, isDark })
             strokeLinejoin="round"
           />
         </svg>
+
+        {/* Ergonomic Touch Halo / Handle below arrow tip */}
+        <div className="vm-touch-halo" title="Touch & Drag Mouse Directly">
+          <div className="vm-halo-dot" />
+          <span className="vm-halo-hint">Drag</span>
+        </div>
       </div>
 
       {/* Click Ripple Feedback */}
@@ -314,121 +490,94 @@ export const VirtualMouse: React.FC<VirtualMouseProps> = ({ isEnabled, isDark })
         />
       ))}
 
-      {/* Minimized Floating Badge */}
-      {isMinimized ? (
+      {/* ========================================================================= */}
+      {/* SLEEK FLOATING CONTROL PILL (NO BULKY TOUCHPAD BOX!)                      */}
+      {/* ========================================================================= */}
+      {isPillMinimized ? (
         <div
-          className="virtual-mouse-badge"
-          style={{ left: `${panelPos.x}px`, top: `${panelPos.y}px` }}
-          onClick={() => setIsMinimized(false)}
-          title="Expand Virtual Mouse Trackpad"
+          className="vm-pill-badge"
+          style={{ left: `${pillPos.x}px`, top: `${pillPos.y}px` }}
+          onClick={() => setIsPillMinimized(false)}
+          title="Expand Mouse Controls"
         >
           <FontAwesomeIcon icon={faComputerMouse} />
-          <span>Virtual Mouse</span>
+          <span>Mouse</span>
         </div>
       ) : (
-        /* Floating Trackpad & Buttons Panel */
         <div
-          className={`virtual-mouse-floating-panel ${isDark ? 'dark' : 'light'}`}
-          style={{ left: `${panelPos.x}px`, top: `${panelPos.y}px` }}
+          className={`vm-action-pill ${isDark ? 'dark' : 'light'}`}
+          style={{ left: `${pillPos.x}px`, top: `${pillPos.y}px` }}
         >
-          {/* Draggable Header */}
+          {/* Drag Handle */}
           <div
-            className="vm-panel-header"
-            onTouchStart={handleHeaderTouchStart}
-            onTouchMove={handleHeaderTouchMove}
-            onTouchEnd={handleHeaderTouchEnd}
+            className="vm-pill-drag-handle"
+            onTouchStart={handlePillTouchStart}
+            onTouchMove={handlePillTouchMove}
+            onTouchEnd={handlePillTouchEnd}
+            title="Drag to reposition toolbar"
           >
-            <div className="vm-title">
-              <FontAwesomeIcon icon={faComputerMouse} />
-              <span>Virtual Mouse</span>
-            </div>
-            <div className="vm-header-actions">
-              <button
-                type="button"
-                className="vm-btn-icon"
-                title="Drag to reposition panel"
-              >
-                <FontAwesomeIcon icon={faArrowsUpDownLeftRight} />
-              </button>
-              <button
-                type="button"
-                className="vm-btn-icon"
-                onClick={() => setIsMinimized(true)}
-                title="Minimize trackpad"
-              >
-                <FontAwesomeIcon icon={faMinus} />
-              </button>
-            </div>
-          </div>
-
-          {/* Touchpad Surface */}
-          <div
-            className={`vm-touchpad-area ${isTouchingTouchpad ? 'is-active' : ''}`}
-            onTouchStart={handleTouchpadStart}
-            onTouchMove={handleTouchpadMove}
-            onTouchEnd={handleTouchpadEnd}
-          >
-            <div className="vm-touchpad-hint">
-              <FontAwesomeIcon icon={faHandPointer} style={{ marginRight: '4px' }} />
-              <span>Touch & Drag to move cursor</span>
-              <br />
-              <small>Tap once to click</small>
-            </div>
-            <div className="vm-coords-pill">
-              {Math.round(cursorPos.x)}, {Math.round(cursorPos.y)}
-            </div>
+            <FontAwesomeIcon icon={faArrowsUpDownLeftRight} />
           </div>
 
           {/* Mouse Buttons */}
-          <div className="vm-buttons-row">
-            <button
-              type="button"
-              className="vm-mouse-btn"
-              onClick={handleLeftClick}
-              title="Left Click at cursor position"
-            >
-              <FontAwesomeIcon icon={faArrowPointer} />
-              <span>LMB (Click)</span>
-            </button>
-            <button
-              type="button"
-              className={`vm-mouse-btn ${isDragMode ? 'active' : ''}`}
-              onClick={handleToggleDragMode}
-              title="Toggle Click-and-Hold Drag"
-            >
-              <span>{isDragMode ? 'Release' : 'Hold/Drag'}</span>
-            </button>
-            <button
-              type="button"
-              className="vm-mouse-btn rmb"
-              onClick={handleRightClick}
-              title="Right Click (Context menu)"
-            >
-              <span>RMB (Right)</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            className="vm-pill-btn"
+            onClick={handleLeftClick}
+            title="Left Click (LMB)"
+          >
+            <FontAwesomeIcon icon={faArrowPointer} />
+            <span>LMB</span>
+          </button>
+
+          <button
+            type="button"
+            className={`vm-pill-btn ${isDragMode ? 'active' : ''}`}
+            onClick={handleToggleDragMode}
+            title="Toggle Click-and-Hold Drag"
+          >
+            <span>{isDragMode ? 'Release' : 'Hold'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="vm-pill-btn"
+            onClick={handleRightClick}
+            title="Right Click (RMB)"
+          >
+            <span>RMB</span>
+          </button>
+
+          <div className="vm-pill-divider" />
 
           {/* Scroll Buttons */}
-          <div className="vm-scroll-row">
-            <button
-              type="button"
-              className="vm-scroll-btn"
-              onClick={() => handleScroll(-120)}
-              title="Scroll Up under cursor"
-            >
-              <FontAwesomeIcon icon={faChevronUp} />
-              <span>Scroll Up</span>
-            </button>
-            <button
-              type="button"
-              className="vm-scroll-btn"
-              onClick={() => handleScroll(120)}
-              title="Scroll Down under cursor"
-            >
-              <FontAwesomeIcon icon={faChevronDown} />
-              <span>Scroll Down</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            className="vm-pill-btn scroll"
+            onClick={() => handleScroll(-120)}
+            title="Scroll Up"
+          >
+            <FontAwesomeIcon icon={faChevronUp} />
+          </button>
+
+          <button
+            type="button"
+            className="vm-pill-btn scroll"
+            onClick={() => handleScroll(120)}
+            title="Scroll Down"
+          >
+            <FontAwesomeIcon icon={faChevronDown} />
+          </button>
+
+          {/* Minimize Button */}
+          <button
+            type="button"
+            className="vm-pill-btn minimize"
+            onClick={() => setIsPillMinimized(true)}
+            title="Minimize"
+          >
+            <FontAwesomeIcon icon={faMinus} />
+          </button>
         </div>
       )}
     </>

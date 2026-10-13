@@ -693,7 +693,73 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
     if (model) {
       setDocStats({ lines: model.getLineCount(), chars: model.getValueLength() });
     }
+
+    // 2.6s Desktop Hover listener
+    let monacoHoverTimer: any = null;
+    let lastMonacoLine: number | null = null;
+    editor.onMouseMove((e: any) => {
+      if (monacoHoverTimer) clearTimeout(monacoHoverTimer);
+      if (e.target?.position) {
+        const ln = e.target.position.lineNumber;
+        lastMonacoLine = ln;
+        monacoHoverTimer = setTimeout(() => {
+          if (lastMonacoLine === ln) {
+            window.dispatchEvent(
+              new CustomEvent('open-end-block-inspector', {
+                detail: { line: ln, x: e.event.posx, y: e.event.posy },
+              })
+            );
+          }
+        }, 2600);
+      }
+    });
+
+    editor.onMouseLeave(() => {
+      if (monacoHoverTimer) clearTimeout(monacoHoverTimer);
+    });
   };
+
+  // Global listeners for line queries, jumping, and unfolding
+  useEffect(() => {
+    const handleQueryLine = (e: Event) => {
+      const customEvent = e as CustomEvent<{ x: number; y: number; line: number | null }>;
+      if (editorRef.current && customEvent.detail) {
+        const { x, y } = customEvent.detail;
+        const target = editorRef.current.getTargetAtClientPoint(x, y);
+        if (target?.position) {
+          customEvent.detail.line = target.position.lineNumber;
+        }
+      }
+    };
+
+    const handleJumpToLine = (e: Event) => {
+      const customEvent = e as CustomEvent<{ lineNumber: number }>;
+      if (editorRef.current && customEvent.detail?.lineNumber) {
+        const ln = customEvent.detail.lineNumber;
+        editorRef.current.revealLineInCenter(ln);
+        editorRef.current.setPosition({ lineNumber: ln, column: 1 });
+        editorRef.current.focus();
+      }
+    };
+
+    const handleUnfoldBlock = (e: Event) => {
+      const customEvent = e as CustomEvent<{ lineNumber: number }>;
+      if (editorRef.current && customEvent.detail?.lineNumber) {
+        editorRef.current.getAction('editor.unfold')?.run();
+        editorRef.current.revealLineInCenter(customEvent.detail.lineNumber);
+      }
+    };
+
+    window.addEventListener('query-editor-line-at-coords', handleQueryLine);
+    window.addEventListener('editor-jump-to-line', handleJumpToLine);
+    window.addEventListener('editor-unfold-block', handleUnfoldBlock);
+
+    return () => {
+      window.removeEventListener('query-editor-line-at-coords', handleQueryLine);
+      window.removeEventListener('editor-jump-to-line', handleJumpToLine);
+      window.removeEventListener('editor-unfold-block', handleUnfoldBlock);
+    };
+  }, []);
 
   const handleUndo = useCallback(() => {
     editorRef.current?.trigger('toolbar', 'undo', null);

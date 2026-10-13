@@ -32,6 +32,8 @@ import DocsModal from './components/DocsModal';
 import ExamplesModal from './components/ExamplesModal';
 import VirtualMouse from './components/VirtualMouse';
 import AiAgentModal from './components/AiAgentModal';
+import EndBlockModal from './components/EndBlockModal';
+import { findBlockAtLine, type LuauBlock } from './utils/block-analyzer';
 import { useDialog } from './context/DialogContext';
 
 import './App.css';
@@ -82,6 +84,15 @@ export const App: React.FC = () => {
   const [isDocsModalOpen, setIsDocsModalOpen] = useState(false);
   const [isExamplesModalOpen, setIsExamplesModalOpen] = useState(false);
   const [isAiAgentModalOpen, setIsAiAgentModalOpen] = useState(false);
+  const [endBlockModal, setEndBlockModal] = useState<{
+    isOpen: boolean;
+    block: LuauBlock | null;
+    targetLine: number;
+  }>({
+    isOpen: false,
+    block: null,
+    targetLine: 1,
+  });
 
   const { showConfirm } = useDialog();
 
@@ -133,6 +144,64 @@ export const App: React.FC = () => {
       )
     );
   }, [activeScriptId]);
+
+  // Open End Block Inspector at target line
+  const handleOpenEndBlock = useCallback(
+    (targetLine: number) => {
+      if (!activeScript) return;
+      const block = findBlockAtLine(activeScript.content, targetLine);
+      if (block) {
+        setEndBlockModal({
+          isOpen: true,
+          block,
+          targetLine,
+        });
+        // Automatically unfold block in editor if it was collapsed
+        window.dispatchEvent(
+          new CustomEvent('editor-unfold-block', { detail: { lineNumber: block.startLine } })
+        );
+      }
+    },
+    [activeScript]
+  );
+
+  const handleJumpToLine = useCallback((lineNumber: number) => {
+    window.dispatchEvent(
+      new CustomEvent('editor-jump-to-line', { detail: { lineNumber } })
+    );
+  }, []);
+
+  const handleUnfoldBlock = useCallback((lineNumber: number) => {
+    window.dispatchEvent(
+      new CustomEvent('editor-unfold-block', { detail: { lineNumber } })
+    );
+  }, []);
+
+  const handleInsertEnd = useCallback(
+    (startLine: number, closerText: string) => {
+      if (!activeScript) return;
+      const lines = activeScript.content.split('\n');
+      const openLine = lines[startLine - 1] || '';
+      const matchIndent = openLine.match(/^(\s*)/);
+      const indent = matchIndent ? matchIndent[1] : '';
+      lines.splice(startLine, 0, `${indent}    -- block body\n${indent}${closerText}`);
+      const updated = lines.join('\n');
+      handleContentChange(updated);
+    },
+    [activeScript, handleContentChange]
+  );
+
+  // Global listener for opening End Block Inspector
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent<{ line: number }>;
+      if (customEvent.detail?.line) {
+        handleOpenEndBlock(customEvent.detail.line);
+      }
+    };
+    window.addEventListener('open-end-block-inspector', handler);
+    return () => window.removeEventListener('open-end-block-inspector', handler);
+  }, [handleOpenEndBlock]);
 
   // Run script
   const handleRun = useCallback(async () => {
@@ -503,9 +572,22 @@ export const App: React.FC = () => {
         isDark={isDark}
       />
 
-      {/* On-Screen Virtual Mouse (Touch-to-Drag PC Trackpad & Cursor) */}
+      {/* On-Screen Virtual Mouse (Direct-Touch PC Cursor, No Touchpad) */}
       <VirtualMouse
         isEnabled={settings.virtualMouse ?? false}
+        isDark={isDark}
+        onOpenEndBlock={handleOpenEndBlock}
+      />
+
+      {/* End Block Inspector (opens after 2.6s hover or action) */}
+      <EndBlockModal
+        isOpen={endBlockModal.isOpen}
+        block={endBlockModal.block}
+        targetLine={endBlockModal.targetLine}
+        onClose={() => setEndBlockModal((prev) => ({ ...prev, isOpen: false }))}
+        onJumpToLine={handleJumpToLine}
+        onUnfoldBlock={handleUnfoldBlock}
+        onInsertEnd={handleInsertEnd}
         isDark={isDark}
       />
     </div>
