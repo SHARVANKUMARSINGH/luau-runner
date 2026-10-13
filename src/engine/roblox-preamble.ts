@@ -625,7 +625,11 @@ end
 function Random:NextInteger(min, max) return math.random(min, max) end
 function Random:NextUnitVector()
     local v = Vector3.new(math.random() * 2 - 1, math.random() * 2 - 1, math.random() * 2 - 1)
-    return if v.Magnitude > 0 then v.Unit else Vector3.yAxis end
+    if v.Magnitude > 0 then
+        return v.Unit
+    else
+        return Vector3.yAxis
+    end
 end
 
 NumberRange = {}
@@ -777,7 +781,7 @@ local function createInstance(className, parent)
     }
 
     -- Set class-specific properties and events
-    if className == "Part" or className == "MeshPart" or className == "WedgePart" or className == "CornerWedgePart" or className == "TrussPart" or className == "SpawnLocation" then
+    if className == "Part" or className == "MeshPart" or className == "WedgePart" or className == "CornerWedgePart" or className == "TrussPart" or className == "SpawnLocation" or className == "Terrain" then
         obj._props.Size = Vector3.new(4, 1, 2)
         obj._props.Position = Vector3.new(0, 0, 0)
         obj._props.CFrame = CFrame.new(0, 0, 0)
@@ -1313,7 +1317,10 @@ local function easeQuad(t) return t * t end
 local function easeCubic(t) return t * t * t end
 local function easeQuart(t) return t * t * t * t end
 local function easeQuint(t) return t * t * t * t * t end
-local function easeExpo(t) return if t == 0 then 0 else 2 ^ (10 * (t - 1)) end
+local function easeExpo(t)
+    if t == 0 then return 0 end
+    return 2 ^ (10 * (t - 1))
+end
 local function easeCirc(t) return 1 - math.sqrt(1 - (t * t)) end
 local function easeBack(t) local s = 1.70158 return t * t * ((s + 1) * t - s) end
 local function easeBounce(t)
@@ -1394,7 +1401,11 @@ local function lerpValue(startVal, endVal, alpha)
     elseif t == "UDim2" then
         return startVal:Lerp(endVal, alpha)
     end
-    return if alpha >= 1 then endVal else startVal
+    if alpha >= 1 then
+        return endVal
+    else
+        return startVal
+    end
 end
 
 function TweenService:Create(instance, tweenInfo, propertyTable)
@@ -1768,7 +1779,11 @@ function HttpService:GenerateGUID(wrap)
         return table.concat(s)
     end
     local guid = string.format("%s-%s-4%s-%s-%s", rHex(8), rHex(4), rHex(3), rHex(4), rHex(12))
-    return if wrap ~= false then "{" .. guid .. "}" else guid
+    if wrap ~= false then
+        return "{" .. guid .. "}"
+    else
+        return guid
+    end
 end
 
 function HttpService:UrlEncode(str)
@@ -2060,18 +2075,20 @@ function workspace:Raycast(origin, direction, raycastParams)
 
     local function checkPart(part)
         if not part or not part:IsA("BasePart") then return end
+        local pos = part.Position
+        local size = part.Size
+        if not pos or not size then return end
         if raycastParams and raycastParams.FilterDescendantsInstances then
             for _, root in ipairs(raycastParams.FilterDescendantsInstances) do
                 if part == root or part:IsDescendantOf(root) then return end
             end
         end
 
-        local pos = part.Position
         local toPart = pos - origin
         local proj = toPart:Dot(direction.Unit)
         if proj > 0 and proj < minDistance then
             local perp = (toPart - direction.Unit * proj).Magnitude
-            local radius = math.max(part.Size.X, part.Size.Y, part.Size.Z) / 2
+            local radius = math.max(size.X, size.Y, size.Z) / 2
             if perp <= radius then
                 minDistance = proj
                 closestHit = part
@@ -2164,22 +2181,30 @@ task = {
         return __task_wait_async(dur)
     end,
     spawn = function(fn, ...)
-        local args = { ... }
-        return __task_spawn_async(function()
-            fn(unpack(args))
-        end)
+        local co = coroutine.create(fn)
+        local success, err = coroutine.resume(co, ...)
+        if not success then
+            warn("task.spawn error: " .. tostring(err))
+        end
+        return co
     end,
     delay = function(sec, fn)
-        task.spawn(function()
-            task.wait(sec)
+        local co = coroutine.create(function()
+            if sec and sec > 0 then
+                task.wait(sec)
+            end
             fn()
         end)
+        coroutine.resume(co)
+        return co
     end,
     defer = function(fn, ...)
-        local args = { ... }
-        task.spawn(function()
-            fn(unpack(args))
-        end)
+        local co = coroutine.create(fn)
+        local success, err = coroutine.resume(co, ...)
+        if not success then
+            warn("task.defer error: " .. tostring(err))
+        end
+        return co
     end,
     cancel = function(t) end,
 }
