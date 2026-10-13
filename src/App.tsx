@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { 
   ScriptFile, 
   ScriptType, 
@@ -34,6 +34,7 @@ import VirtualMouse from './components/VirtualMouse';
 import AiAgentModal from './components/AiAgentModal';
 import PlayViewport from './components/PlayViewport';
 import { RobloxSimulationWorld } from './engine/roblox-3d/simulation';
+import { RobloxWebGLEngine } from './engine/roblox-webgl/webgl-engine';
 import type { PlayMode } from './engine/roblox-3d/simulation';
 import { useDialog } from './context/DialogContext';
 
@@ -70,6 +71,7 @@ export const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playMode, setPlayMode] = useState<PlayMode>('solo');
   const world = useMemo(() => new RobloxSimulationWorld(), []);
+  const webglEngineRef = useRef<RobloxWebGLEngine | null>(null);
 
   // DataModel Hierarchy Tree for Explorer
   const [tree, setTree] = useState<ExplorerNode | null>(() => {
@@ -187,6 +189,17 @@ export const App: React.FC = () => {
             setTree(newTree);
           },
           on3DSync: (partData) => {
+            if (webglEngineRef.current) {
+              webglEngineRef.current.syncPartFromLuau({
+                id: partData.name,
+                name: partData.name,
+                position: partData.position,
+                size: partData.size,
+                color: partData.color,
+                anchored: partData.anchored ?? true,
+                transparency: partData.transparency ?? 0,
+              });
+            }
             world.syncPartFromLuau(
               partData.name,
               partData.position,
@@ -197,9 +210,25 @@ export const App: React.FC = () => {
             );
           },
           on3DRemovePart: (name) => {
+            if (webglEngineRef.current) {
+              webglEngineRef.current.removePart(name);
+            }
             world.removePart(name);
           },
           onCharacterSync: (charData) => {
+            if (webglEngineRef.current) {
+              if (charData.walkSpeed !== undefined) {
+                webglEngineRef.current.player.walkSpeed = charData.walkSpeed;
+              }
+              if (charData.health !== undefined) {
+                webglEngineRef.current.player.health = charData.health;
+                webglEngineRef.current.updateNameTag();
+              }
+              if (charData.maxHealth !== undefined) {
+                webglEngineRef.current.player.maxHealth = charData.maxHealth;
+                webglEngineRef.current.updateNameTag();
+              }
+            }
             if (charData.walkSpeed !== undefined) {
               world.character.walkSpeed = charData.walkSpeed;
             }
@@ -251,6 +280,17 @@ export const App: React.FC = () => {
           setTree(newTree);
         },
         on3DSync: (partData) => {
+          if (webglEngineRef.current) {
+            webglEngineRef.current.syncPartFromLuau({
+              id: partData.name,
+              name: partData.name,
+              position: partData.position,
+              size: partData.size,
+              color: partData.color,
+              anchored: partData.anchored ?? true,
+              transparency: partData.transparency ?? 0,
+            });
+          }
           world.syncPartFromLuau(
             partData.name,
             partData.position,
@@ -261,9 +301,21 @@ export const App: React.FC = () => {
           );
         },
         on3DRemovePart: (name) => {
+          if (webglEngineRef.current) {
+            webglEngineRef.current.removePart(name);
+          }
           world.removePart(name);
         },
         onCharacterSync: (charData) => {
+          if (webglEngineRef.current) {
+            if (charData.walkSpeed !== undefined) {
+              webglEngineRef.current.player.walkSpeed = charData.walkSpeed;
+            }
+            if (charData.health !== undefined) {
+              webglEngineRef.current.player.health = charData.health;
+              webglEngineRef.current.updateNameTag();
+            }
+          }
           if (charData.walkSpeed !== undefined) {
             world.character.walkSpeed = charData.walkSpeed;
           }
@@ -516,6 +568,22 @@ export const App: React.FC = () => {
               onToggleMode={(newMode) => {
                 setPlayMode(newMode);
                 world.mode = newMode;
+                if (webglEngineRef.current) {
+                  webglEngineRef.current.mode = newMode;
+                }
+              }}
+              engineRefProp={webglEngineRef}
+              onSendMessage={(text) => {
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: `chat_${Date.now()}`,
+                    type: 'output',
+                    text: `Player1: ${text}`,
+                    timestamp: Date.now(),
+                    source: 'Chat',
+                  },
+                ]);
               }}
             />
           ) : (

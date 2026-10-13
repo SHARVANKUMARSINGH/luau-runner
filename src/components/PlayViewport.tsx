@@ -8,49 +8,49 @@ import {
   faCommentDots, 
   faArrowUp,
   faServer,
-  faUser
+  faUser,
+  faXmark,
+  faArrowRight
 } from '@fortawesome/free-solid-svg-icons';
-import { Roblox3DRenderer } from '../engine/roblox-3d/renderer';
+import { RobloxWebGLEngine } from '../engine/roblox-webgl/webgl-engine';
 import { RobloxSimulationWorld } from '../engine/roblox-3d/simulation';
-import type { PlayMode, SimulationInput } from '../engine/roblox-3d/simulation';
+import type { PlayMode } from '../engine/roblox-3d/simulation';
 import type { ConsoleMessage } from '../types';
 import './PlayViewport.css';
 
-interface PlayViewportProps {
-  world: RobloxSimulationWorld;
+export interface PlayViewportProps {
+  world?: RobloxSimulationWorld;
   messages: ConsoleMessage[];
   mode: PlayMode;
   onStop: () => void;
   onToggleMode: (newMode: PlayMode) => void;
+  onSendMessage?: (text: string) => void;
+  engineRefProp?: React.MutableRefObject<RobloxWebGLEngine | null>;
 }
 
 export const PlayViewport: React.FC<PlayViewportProps> = ({
-  world,
   messages,
   mode,
   onStop,
   onToggleMode,
+  onSendMessage,
+  engineRefProp,
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const rendererRef = useRef<Roblox3DRenderer | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const engineRef = useRef<RobloxWebGLEngine | null>(null);
 
   // Studio UI states
   const [isPaused, setIsPaused] = useState(false);
   const [showChat, setShowChat] = useState(true);
+  const [isEscMenuOpen, setIsEscMenuOpen] = useState(false);
   const [currentContext, setCurrentContext] = useState<'client' | 'server'>('client');
   const [fps, setFps] = useState(60);
   const [ping, setPing] = useState(12);
+  const [playerHealth, setPlayerHealth] = useState(100);
+  const [playerName, setPlayerName] = useState('Player1');
 
-  // Active inputs
-  const inputRef = useRef<SimulationInput>({
-    forward: false,
-    backward: false,
-    left: false,
-    right: false,
-    jump: false,
-    joystickX: 0,
-    joystickY: 0,
-  });
+  // Chat message input state
+  const [chatInputText, setChatInputText] = useState('');
 
   // Camera dragging state
   const isOrbitingRef = useRef(false);
@@ -62,87 +62,100 @@ export const PlayViewport: React.FC<PlayViewportProps> = ({
   const [joystickThumbOffset, setJoystickThumbOffset] = useState({ x: 0, y: 0 });
   const [isJumpActive, setIsJumpActive] = useState(false);
 
-  // Setup Canvas & Renderer
+  // Setup WebGL Engine
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!container) return;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const engine = new RobloxWebGLEngine(container);
+    engineRef.current = engine;
+    if (engineRefProp) {
+      engineRefProp.current = engine;
+    }
 
-    const updateSize = () => {
-      const rect = canvas.getBoundingClientRect();
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      if (rendererRef.current) {
-        rendererRef.current.resize(canvas.width, canvas.height);
+    engine.mode = mode;
+    engine.isPaused = isPaused;
+
+    // Resize observer
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          engine.resize(width, height);
+        }
       }
-    };
+    });
+    resizeObserver.observe(container);
 
-    rendererRef.current = new Roblox3DRenderer(ctx, canvas.width, canvas.height);
-    updateSize();
-
-    window.addEventListener('resize', updateSize);
-
-    // Animation Loop
-    let animId: number;
-    let lastTime = performance.now();
-
-    const loop = (time: number) => {
-      const dt = (time - lastTime) / 1000;
-      lastTime = time;
-
-      world.mode = mode;
-      world.isPaused = isPaused;
-      world.step(dt, inputRef.current);
-
-      if (rendererRef.current) {
-        rendererRef.current.render(
-          world.parts,
-          mode === 'solo' ? world.character : null,
-          world.camera.eye,
-          world.camera.target
-        );
+    // Sync stats interval
+    const statsInterval = setInterval(() => {
+      if (engineRef.current) {
+        setFps(engineRef.current.fps);
+        setPing(engineRef.current.ping);
+        setPlayerHealth(Math.round(engineRef.current.player.health));
+        setPlayerName(engineRef.current.player.name);
       }
-
-      setFps(world.fps);
-      setPing(world.ping);
-
-      animId = requestAnimationFrame(loop);
-    };
-
-    animId = requestAnimationFrame(loop);
+    }, 250);
 
     return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener('resize', updateSize);
+      clearInterval(statsInterval);
+      resizeObserver.disconnect();
+      engine.destroy();
+      engineRef.current = null;
+      if (engineRefProp) {
+        engineRefProp.current = null;
+      }
     };
-  }, [world, mode, isPaused]);
+  }, []);
 
-  // Keyboard navigation
+  // Sync mode changes to engine
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.mode = mode;
+    }
+  }, [mode]);
+
+  // Sync pause state to engine
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.isPaused = isPaused;
+    }
+  }, [isPaused]);
+
+  // Keyboard navigation & Esc key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
+      if (e.code === 'Escape') {
+        setIsEscMenuOpen((prev) => !prev);
+        return;
+      }
+
+      const eng = engineRef.current;
+      if (!eng) return;
+
       const code = e.code;
-      if (code === 'KeyW' || code === 'ArrowUp') inputRef.current.forward = true;
-      if (code === 'KeyS' || code === 'ArrowDown') inputRef.current.backward = true;
-      if (code === 'KeyA' || code === 'ArrowLeft') inputRef.current.left = true;
-      if (code === 'KeyD' || code === 'ArrowRight') inputRef.current.right = true;
+      if (code === 'KeyW' || code === 'ArrowUp') eng.input.forward = true;
+      if (code === 'KeyS' || code === 'ArrowDown') eng.input.backward = true;
+      if (code === 'KeyA' || code === 'ArrowLeft') eng.input.left = true;
+      if (code === 'KeyD' || code === 'ArrowRight') eng.input.right = true;
       if (code === 'Space') {
         e.preventDefault();
-        inputRef.current.jump = true;
+        eng.input.jump = true;
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      const eng = engineRef.current;
+      if (!eng) return;
+
       const code = e.code;
-      if (code === 'KeyW' || code === 'ArrowUp') inputRef.current.forward = false;
-      if (code === 'KeyS' || code === 'ArrowDown') inputRef.current.backward = false;
-      if (code === 'KeyA' || code === 'ArrowLeft') inputRef.current.left = false;
-      if (code === 'KeyD' || code === 'ArrowRight') inputRef.current.right = false;
-      if (code === 'Space') inputRef.current.jump = false;
+      if (code === 'KeyW' || code === 'ArrowUp') eng.input.forward = false;
+      if (code === 'KeyS' || code === 'ArrowDown') eng.input.backward = false;
+      if (code === 'KeyA' || code === 'ArrowLeft') eng.input.left = false;
+      if (code === 'KeyD' || code === 'ArrowRight') eng.input.right = false;
+      if (code === 'Space') eng.input.jump = false;
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -156,17 +169,16 @@ export const PlayViewport: React.FC<PlayViewportProps> = ({
 
   // Mouse camera orbit & zoom handlers
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Both right click and left click on canvas orbit camera
     isOrbitingRef.current = true;
     lastMousePosRef.current = { x: e.clientX, y: e.clientY };
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isOrbitingRef.current) return;
+    if (!isOrbitingRef.current || !engineRef.current) return;
     const dx = e.clientX - lastMousePosRef.current.x;
     const dy = e.clientY - lastMousePosRef.current.y;
     lastMousePosRef.current = { x: e.clientX, y: e.clientY };
-    world.rotateCamera(dx, dy);
+    engineRef.current.rotateCamera(dx, dy);
   };
 
   const handleMouseUp = () => {
@@ -174,7 +186,9 @@ export const PlayViewport: React.FC<PlayViewportProps> = ({
   };
 
   const handleWheel = (e: React.WheelEvent) => {
-    world.zoomCamera(e.deltaY * 0.1);
+    if (engineRef.current) {
+      engineRef.current.zoomCamera(e.deltaY * 0.1);
+    }
   };
 
   // Touch Camera drag
@@ -184,14 +198,13 @@ export const PlayViewport: React.FC<PlayViewportProps> = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    // Ignore if touch belongs to joystick
     const touch = Array.from(e.touches).find((t) => t.identifier !== joystickTouchIdRef.current);
-    if (!touch) return;
+    if (!touch || !engineRef.current) return;
 
     const dx = touch.clientX - lastMousePosRef.current.x;
     const dy = touch.clientY - lastMousePosRef.current.y;
     lastMousePosRef.current = { x: touch.clientX, y: touch.clientY };
-    world.rotateCamera(dx, dy);
+    engineRef.current.rotateCamera(dx, dy);
   };
 
   // Virtual Joystick touch handlers
@@ -208,7 +221,7 @@ export const PlayViewport: React.FC<PlayViewportProps> = ({
 
   const handleJoystickTouchMove = (e: React.TouchEvent) => {
     e.stopPropagation();
-    if (joystickTouchIdRef.current === null) return;
+    if (joystickTouchIdRef.current === null || !engineRef.current) return;
     const touch = Array.from(e.touches).find((t) => t.identifier === joystickTouchIdRef.current);
     if (!touch) return;
 
@@ -225,36 +238,66 @@ export const PlayViewport: React.FC<PlayViewportProps> = ({
     }
 
     setJoystickThumbOffset({ x: clampedX, y: clampedY });
-    inputRef.current.joystickX = clampedX / maxRadius;
-    inputRef.current.joystickY = clampedY / maxRadius;
+    engineRef.current.input.joystickX = clampedX / maxRadius;
+    engineRef.current.input.joystickY = clampedY / maxRadius;
   };
 
   const handleJoystickTouchEnd = (e: React.TouchEvent) => {
     e.stopPropagation();
     joystickTouchIdRef.current = null;
     setJoystickThumbOffset({ x: 0, y: 0 });
-    inputRef.current.joystickX = 0;
-    inputRef.current.joystickY = 0;
+    if (engineRef.current) {
+      engineRef.current.input.joystickX = 0;
+      engineRef.current.input.joystickY = 0;
+    }
   };
 
   // Jump Button Touch/Click
   const handleJumpPress = useCallback(() => {
-    inputRef.current.jump = true;
+    if (engineRef.current) {
+      engineRef.current.input.jump = true;
+    }
     setIsJumpActive(true);
   }, []);
 
   const handleJumpRelease = useCallback(() => {
-    inputRef.current.jump = false;
+    if (engineRef.current) {
+      engineRef.current.input.jump = false;
+    }
     setIsJumpActive(false);
   }, []);
+
+  // Respawn Player
+  const handleRespawn = useCallback(() => {
+    if (engineRef.current) {
+      engineRef.current.respawnCharacter();
+      setPlayerHealth(engineRef.current.player.maxHealth);
+    }
+    setIsEscMenuOpen(false);
+  }, []);
+
+  // Send chat message
+  const handleSendChat = (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = chatInputText.trim();
+    if (!text) return;
+    if (onSendMessage) {
+      onSendMessage(text);
+    }
+    setChatInputText('');
+  };
 
   return (
     <div className="play-viewport-container">
       {/* Studio Simulation Top Ribbon */}
       <div className="studio-play-ribbon">
         <div className="studio-ribbon-left">
-          {/* Iconic Roblox Tilt Square Logo */}
-          <div className="roblox-logo-icon" title="Roblox Studio Engine">
+          {/* Iconic Roblox Tilt Square Logo - Toggles Esc Menu */}
+          <div 
+            className="roblox-logo-icon" 
+            onClick={() => setIsEscMenuOpen((prev) => !prev)}
+            title="Click or press Esc for Roblox Studio Experience Menu"
+          >
             <svg viewBox="0 0 100 100" className="roblox-logo-svg">
               <rect
                 x="15"
@@ -327,7 +370,7 @@ export const PlayViewport: React.FC<PlayViewportProps> = ({
             <button
               type="button"
               className="studio-ribbon-btn"
-              onClick={() => world.respawnCharacter()}
+              onClick={handleRespawn}
               title="Respawn Player Character"
             >
               <FontAwesomeIcon icon={faRotateRight} />
@@ -349,7 +392,7 @@ export const PlayViewport: React.FC<PlayViewportProps> = ({
         </div>
       </div>
 
-      {/* 3D Canvas Area */}
+      {/* 3D WebGL Canvas Area */}
       <div
         className="play-canvas-area"
         onMouseDown={handleMouseDown}
@@ -360,11 +403,16 @@ export const PlayViewport: React.FC<PlayViewportProps> = ({
         onTouchMove={handleTouchMove}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <canvas ref={canvasRef} className="roblox-3d-canvas" />
+        {/* Three.js WebGL canvas mounts inside this container */}
+        <div
+          ref={containerRef}
+          style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
+        />
 
         {/* In-Game Top Bar Overlay */}
         <div className="ingame-topbar-overlay">
           <div className="ingame-topbar-left">
+            {/* Chat button */}
             <button
               type="button"
               className="roblox-ingame-btn"
@@ -383,9 +431,9 @@ export const PlayViewport: React.FC<PlayViewportProps> = ({
                 <span>Health</span>
               </div>
               <div className="roblox-leaderboard-row">
-                <span>{world.character.name}</span>
-                <span style={{ color: '#2ed573' }}>
-                  {Math.round(world.character.health)}/100
+                <span>{playerName}</span>
+                <span style={{ color: playerHealth > 25 ? '#2ed573' : '#ff4757' }}>
+                  {playerHealth}/100
                 </span>
               </div>
             </div>
@@ -404,6 +452,20 @@ export const PlayViewport: React.FC<PlayViewportProps> = ({
                 {msg.text}
               </div>
             ))}
+
+            {/* Chat Input Bar */}
+            <form onSubmit={handleSendChat} className="chat-input-row">
+              <input
+                type="text"
+                placeholder="To chat, click here or press /"
+                value={chatInputText}
+                onChange={(e) => setChatInputText(e.target.value)}
+                className="chat-input"
+              />
+              <button type="submit" className="chat-send-btn" title="Send Chat">
+                <FontAwesomeIcon icon={faArrowRight} />
+              </button>
+            </form>
           </div>
         )}
 
@@ -441,8 +503,102 @@ export const PlayViewport: React.FC<PlayViewportProps> = ({
 
         {/* Keyboard / Orbit Controls Hint */}
         <div className="camera-controls-hint">
-          <span>WASD / Joystick to Walk • Spacebar / Button to Jump • Drag to Orbit Camera</span>
+          <span>WASD / Joystick to Walk • Spacebar to Jump • Drag to Orbit Camera • Esc for Menu</span>
         </div>
+
+        {/* Authentic Roblox Esc Pause Menu Modal */}
+        {isEscMenuOpen && (
+          <div className="roblox-esc-menu-overlay" onClick={() => setIsEscMenuOpen(false)}>
+            <div className="roblox-esc-menu-card" onClick={(e) => e.stopPropagation()}>
+              <div className="roblox-esc-header">
+                <div className="roblox-esc-title-group">
+                  <div className="roblox-logo-icon" style={{ width: 28, height: 28 }}>
+                    <svg viewBox="0 0 100 100" className="roblox-logo-svg">
+                      <rect
+                        x="15"
+                        y="15"
+                        width="70"
+                        height="70"
+                        rx="14"
+                        fill="#dcdde1"
+                        transform="rotate(-15 50 50)"
+                      />
+                      <rect
+                        x="36"
+                        y="36"
+                        width="28"
+                        height="28"
+                        rx="5"
+                        fill="#18191f"
+                        transform="rotate(-15 50 50)"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="roblox-esc-title">Roblox Studio Simulation</div>
+                    <div className="roblox-esc-subtitle">Baseplate • Three.js WebGL Engine</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="roblox-esc-close-btn"
+                  onClick={() => setIsEscMenuOpen(false)}
+                >
+                  <FontAwesomeIcon icon={faXmark} />
+                </button>
+              </div>
+
+              <div className="roblox-esc-body">
+                <button
+                  type="button"
+                  className="roblox-esc-action-btn btn-resume"
+                  onClick={() => setIsEscMenuOpen(false)}
+                >
+                  <span>Resume Experience</span>
+                </button>
+
+                {mode === 'solo' && (
+                  <button
+                    type="button"
+                    className="roblox-esc-action-btn"
+                    onClick={handleRespawn}
+                  >
+                    <FontAwesomeIcon icon={faRotateRight} />
+                    <span>Reset Character</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="roblox-esc-action-btn"
+                  onClick={() => {
+                    setCurrentContext((prev) => (prev === 'client' ? 'server' : 'client'));
+                    setIsEscMenuOpen(false);
+                  }}
+                >
+                  <FontAwesomeIcon icon={currentContext === 'client' ? faServer : faUser} />
+                  <span>Switch to {currentContext === 'client' ? 'Server View' : 'Client View'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="roblox-esc-action-btn btn-leave"
+                  onClick={() => {
+                    setIsEscMenuOpen(false);
+                    onStop();
+                  }}
+                >
+                  <FontAwesomeIcon icon={faStop} />
+                  <span>Leave & Stop Simulation</span>
+                </button>
+              </div>
+
+              <div className="roblox-esc-footer">
+                Luau WebAssembly VM • 60 FPS WebGL Renderer
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
